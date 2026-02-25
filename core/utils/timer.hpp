@@ -31,17 +31,17 @@ namespace core::utils {
             if (ns < 1'000LL) 
                 return std::to_string(ns) + " ns";
             if (ns < 1'000'000LL)
-                return std::to_string(ns / 1'000.0) + " us";
+                return std::to_string(static_cast<double>(ns) / 1'000.0) + " us";
             if (ns < 1'000'000'000LL)
-                return std::to_string(ns / 1'000'000.0) + " ms";
-            return std::to_string(ns / 1'000'000'000.0) + " s";
+                return std::to_string(static_cast<double>(ns) / 1'000'000.0) + " ms";
+            return std::to_string(static_cast<double>(ns) / 1'000'000'000.0) + " s";
         }
 
     private:
         TimePoint start_{};
         TimePoint end_{};
 
-    }
+    };
 
 } // namespace core:utils
 

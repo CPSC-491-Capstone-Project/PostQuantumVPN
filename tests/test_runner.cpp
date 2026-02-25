@@ -1,19 +1,38 @@
 #include "tests.h"
+#include "timer.hpp"
 
 #include <string_view>
 #include <iostream>
+#include <iomanip>
 
 static int total_tests = 0;
 static int passed_tests = 0;
 static int failed_tests = 0;
 
-void Run(bool (*test)()) {
+static const char* GREEN = "\033[32m";
+static const char* RED = "\033[31m";
+static const char* CYAN = "\033[36m";
+static const char* RESET = "\033[0m";
+
+void Run(bool (*test)(), std::string_view name) {
     total_tests++;
-    if (test()) {
+    core::utils::Timer timer;
+
+    std::cout << CYAN << "[TEST] " << RESET << std::left << std::setw(40) << name;
+
+    timer.Start();
+    bool result = test();
+    timer.Stop();
+
+    if (result) {
         passed_tests++;
+        std::cout << GREEN << "[PASS]" << RESET;
     } else {
         failed_tests++;
+        std::cout << RED   << "[FAIL]" << RESET;
     }
+
+    std::cout << "  " << timer.ElapsedStr() << "\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -21,19 +40,21 @@ int main(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
 
-    std::cout << "========================================" << std::endl;
-    std::cout << "Running Test Suite" << std::endl;
-    std::cout << "========================================" << std::endl;
-    std::cout << std::endl;
+    std::cout << "========================================\n";
+    std::cout << "Running Test Suite\n";
+    std::cout << "========================================\n\n";
 
     // =============================================================================
-    // Sample Tests
+    // Random Tests
     // =============================================================================
     
-    Run(SampleTest1); // This test will pass
-    Run(SampleTest2); // This test will fail
-
-    std::cout << std::endl;
+    std::cout << "\n";
+    Run(RandomTest_SingletonInit, "Random: Init");
+    Run(RandomTest_ZeroBytes, "Random: 0 bytes");
+    Run(RandomTest_OneByte, "Random: 1 byte");
+    Run(RandomTest_EightBytes, "Random: 8 bytes");
+    Run(RandomTest_OneKilobyte, "Random: 1 KB");
+    Run(RandomTest_3319Bytes, "Random: 3319 bytes");
 
     // =============================================================================
     // Future Tests
@@ -44,31 +65,23 @@ int main(int argc, char* argv[]) {
     // =============================================================================
     // Test Summary
     // =============================================================================
-    std::cout << "========================================" << std::endl;
-    std::cout << "Test Summary" << std::endl;
-    std::cout << "========================================" << std::endl;
-    std::cout << "Total: " << total_tests << std::endl;
-    std::cout << "Passed: " << passed_tests << std::endl;
-    std::cout << "Failed: " << failed_tests << std::endl;
-    std::cout << std::endl;
+    std::cout << "\n========================================\n";
+    std::cout << "Test Summary\n";
+    std::cout << "========================================\n";
+    std::cout << "Total:  " << total_tests  << "\n";
+    std::cout << GREEN << "Passed: " << passed_tests << RESET << "\n";
+    std::cout << RED   << "Failed: " << failed_tests << RESET << "\n\n";
 }
 
 // =============================================================================
 // Helper Functions
 // =============================================================================
 bool test_helper(std::string_view expected, std::string_view result) {
-    // ANSI color codes
-    const char* GREEN = "\033[32m";
-    const char* RED = "\033[31m";
-    const char* RESET = "\033[0m";
-
-
     if (result == expected) {
-        std::cout << GREEN << "[PASS]" << RESET << "\n";
         return true;
     } else {
-        std::cout << RED << "[FAIL]" << RESET << "Expected: " << expected << "\n";
-        std::cout << RED << "[FAIL]" << RESET << "Got:      " << result << "\n";
+        std::cout << "\n" << RED << "  Expected: " << RESET << expected << "\n";
+        std::cout         << RED << "  Got:      " << RESET << result   << "\n";
         return false;
     }
 }

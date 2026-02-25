@@ -4,12 +4,17 @@
 #include <string_view>
 #include <iostream>
 
+
 // =============================================================================
-// Sample Test
+// Random Tests
 // =============================================================================
 
-bool SampleTest1(); // This test will pass
-bool SampleTest2(); // This test will fail
+bool RandomTest_SingletonInit();
+bool RandomTest_ZeroBytes();
+bool RandomTest_OneByte();
+bool RandomTest_EightBytes();
+bool RandomTest_OneKilobyte();
+bool RandomTest_3319Bytes();
 
 // =============================================================================
 // Future Test Categories

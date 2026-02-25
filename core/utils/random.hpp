@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <vector>
 #include <cstring>
+#include <stdexcept>
 
 namespace core::utils {
 
