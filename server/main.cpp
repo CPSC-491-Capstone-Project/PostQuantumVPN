@@ -1,6 +1,3 @@
-#include "temp.h"
-#include "temp.hpp"
-
 #include <iostream>
 
 int main(int argc, char* argv[]) {

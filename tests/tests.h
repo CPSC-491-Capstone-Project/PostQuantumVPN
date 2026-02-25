@@ -4,12 +4,29 @@
 #include <string_view>
 #include <iostream>
 
+
 // =============================================================================
-// Sample Test
+// Random Tests
 // =============================================================================
 
-bool SampleTest1(); // This test will pass
-bool SampleTest2(); // This test will fail
+bool RandomTest_SingletonInit();
+bool RandomTest_ZeroBytes();
+bool RandomTest_OneByte();
+bool RandomTest_EightBytes();
+bool RandomTest_OneKilobyte();
+bool RandomTest_3319Bytes();
+
+// =============================================================================
+// Bit Utils Tests
+// =============================================================================
+bool BitUtilsTest_BitsToBytes_Basic();
+bool BitUtilsTest_BitsToBytes_Zero();
+bool BitUtilsTest_BitsToBytes_AllOnes();
+bool BitUtilsTest_BytesToBits_Basic();
+bool BitUtilsTest_BytesToBits_Zero();
+bool BitUtilsTest_BytesToBits_AllOnes();
+bool BitUtilsTest_Roundtrip_BitsToBytes_To_BytesToBits();
+bool BitUtilsTest_Roundtrip_BytesToBits_To_BitsToBytes();
 
 // =============================================================================
 // Future Test Categories
