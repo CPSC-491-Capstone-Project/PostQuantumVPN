@@ -57,6 +57,19 @@ int main(int argc, char* argv[]) {
     Run(RandomTest_3319Bytes, "Random: 3319 bytes");
 
     // =============================================================================
+    // Bit Utils Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(BitUtilsTest_BitsToBytes_Basic, "BitsToBytes: basic (0x01)");
+    Run(BitUtilsTest_BitsToBytes_Zero, "BitsToBytes: all zeros");
+    Run(BitUtilsTest_BitsToBytes_AllOnes, "BitsToBytes: all ones (0xFF)");
+    Run(BitUtilsTest_BytesToBits_Basic, "BytesToBits: basic (0x01)");
+    Run(BitUtilsTest_BytesToBits_Zero, "BytesToBits: all zeros");
+    Run(BitUtilsTest_BytesToBits_AllOnes, "BytesToBits: all ones (0xFF)");
+    Run(BitUtilsTest_Roundtrip_BytesToBits_To_BitsToBytes, "Roundtrip: BytesToBits --> BitsToBytes");
+    Run(BitUtilsTest_Roundtrip_BitsToBytes_To_BytesToBits, "Roundtrip: BitsToBytes --> BytesToBits");
+
+    // =============================================================================
     // Future Tests
     // =============================================================================
 

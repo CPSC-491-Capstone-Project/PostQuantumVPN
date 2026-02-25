@@ -6,8 +6,13 @@ namespace core::utils {
         const std::size_t len = bits.size() / 8;
         std::vector<uint8_t> bytes(len, 0);
 
-        for (std::size_t i{0uz}; i < (8 * len); ++i) {
-            bytes[i / 8] += bits[i] * (1u << (i % 8));
+        for (std::size_t i{0uz}; i < len; ++i) {
+            const std::size_t base = i * 8;
+            uint8_t byte{0u};
+            for (std::size_t j{0uz}; j < 8; ++j) {
+                byte |= static_cast<uint8_t>(bits[base + j] << j);
+            }
+            bytes[i] = byte;
         }
 
         return bytes;
@@ -24,6 +29,7 @@ namespace core::utils {
                 bytes_copy[i] /= 2;
             }
         }
+        return bits;
     }
 
-} // namespace core:utils
+} // namespace core::utils

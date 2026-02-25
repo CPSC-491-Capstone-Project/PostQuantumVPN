@@ -1,6 +1,5 @@
 #include "tests.h"
 #include "random.hpp"
-#include <stdexcept>
 #include <iostream>
 
 using namespace core::utils;
