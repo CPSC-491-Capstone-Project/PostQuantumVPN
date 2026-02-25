@@ -1,5 +1,0 @@
-#ifndef CPP_TEMPLATE_TMEP_H_
-#define CPP_TEMPLATE_TMEP_H_
-
-
-#endif // CPP_TEMPLATE_TMEP_H_
