@@ -29,6 +29,15 @@ bool BitUtilsTest_Roundtrip_BitsToBytes_To_BytesToBits();
 bool BitUtilsTest_Roundtrip_BytesToBits_To_BitsToBytes();
 
 // =============================================================================
+// ML-KEM (Kyber) Tests
+// =============================================================================
+bool MlKemTest_Roundtrip_768();
+bool MlKemTest_SharedSecretSize();
+bool MlKemTest_EncapsulateUniqueness();
+bool MlKemTest_WrongKeyImplicitRejection();
+
+
+// =============================================================================
 // Future Test Categories
 // =============================================================================
 

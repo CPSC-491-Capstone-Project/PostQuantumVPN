@@ -70,6 +70,15 @@ int main(int argc, char* argv[]) {
     Run(BitUtilsTest_Roundtrip_BitsToBytes_To_BytesToBits, "Roundtrip: BitsToBytes --> BytesToBits");
 
     // =============================================================================
+    // ML-KEM Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(MlKemTest_Roundtrip_768,             "ML-KEM: roundtrip 768");
+    Run(MlKemTest_SharedSecretSize,          "ML-KEM: shared secret = 32 bytes");
+    Run(MlKemTest_EncapsulateUniqueness,     "ML-KEM: encap uniqueness");
+    Run(MlKemTest_WrongKeyImplicitRejection, "ML-KEM: wrong key implicit reject");
+
+    // =============================================================================
     // Future Tests
     // =============================================================================
 
