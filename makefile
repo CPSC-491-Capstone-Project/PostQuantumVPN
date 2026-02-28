@@ -29,6 +29,41 @@ else
 	$(error Unsupported OS: $(UNAME_S))
 endif
 
+# ----- Lib Detections -----
+ifeq ($(PLATFORM),macos)
+	OPENSSL_PREFIX := $(shell brew --prefix openssl 2>/dev/null)
+	ifdef OPENSSL_PREFIX
+		LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include
+		LDFLAGS := -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto
+	else
+		OPENSSL_FOUND := no
+	endif
+else ifeq ($(PLATFORM),linux)
+	OPENSSL_CHECK := $(shell pkg-config --exists openssl 2>/dev/null && echo yes || echo no)
+	ifeq ($(OPENSSL_CHECK),yes)
+		LIB_CFLAGS := $(shell pkg-config --cflags openssl)
+		LDFLAGS := $(shell pkg-config --libs openssl)
+	else
+		OPENSSL_FOUND := no
+	endif
+else ifeq ($(PLATFORM),windows)
+	OPENSSL_CHECK := $(shell where openssl >nul 2>&1 && echo yes || echo no)
+	ifeq ($(OPENSSL_CHECK),yes)
+		LIB_CFLAGS :=
+		LDFLAGS := -lssl -lcrypto
+	else
+		OPENSSL_FOUND := no
+	endif
+endif
+
+ifeq ($(OPENSSL_FOUND),no)
+$(info )
+$(info  ERROR: OpenSSL development libraries not found.)
+$(info  Please install OpenSSL and ensure headers are in your include path.)
+$(info )
+$(error OpenSSL is required to build this project)
+endif
+
 # ----- Directories -----
 OBJDIR := obj
 BINDIR := bin
@@ -50,8 +85,7 @@ SERVER_DEPS := $(SERVER_OBJS:.o=.d)
 TEST_DEPS   := $(TEST_OBJS:.o=.d)
 
 # ----- Flags -----
-CXXFLAGS := $(STD) $(WARN) $(OPT) $(DEP) $(INCLUDES)
-LDFLAGS := 
+CXXFLAGS := $(STD) $(WARN) $(OPT) $(DEP) $(INCLUDES) $(LIB_CFLAGS) 
 
 # ----- Object Directory -----
 $(OBJDIR)/%.o: %.$(CXX_EXT)
