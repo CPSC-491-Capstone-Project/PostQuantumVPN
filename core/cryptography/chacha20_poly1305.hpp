@@ -40,7 +40,7 @@ namespace core::cryptography::chacha20_poly1305 {
         const Key& key,
         const Nonce& nonce,
         std::span<const std::uint8_t> aad = {}
-    ) -> std::optional<std::vector<std::uint8_t>>;
+    ) -> std::optional<EncryptResult>;
 
     [[nodiscard]] auto Decrypt(
         std::span<const std::uint8_t> ciphertext,
