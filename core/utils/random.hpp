@@ -8,6 +8,10 @@
 #include <cstring>
 #include <stdexcept>
 
+// NOTE: This class uses mt19937_64 and is NOT cryptographically secure.
+// For cryptographic randomness, use RAND_bytes (OpenSSL) or the
+// GenerateKey/GenerateNonce helpers in the respective crypto wrappers.
+
 namespace core::utils {
 
     // Singleton class for generating random bytes

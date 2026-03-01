@@ -38,6 +38,43 @@ bool MlKemTest_WrongKeyImplicitRejection();
 
 
 // =============================================================================
+// ChaCha20-Poly1305 Tests
+// =============================================================================
+
+// Key / Nonce generation
+bool ChaCha20Test_GenerateKey_Succeeds();
+bool ChaCha20Test_GenerateKey_Unique();
+bool ChaCha20Test_GenerateNonce_Succeeds();
+bool ChaCha20Test_GenerateNonce_Unique();
+
+// Encrypt
+bool ChaCha20Test_Encrypt_Succeeds();
+bool ChaCha20Test_Encrypt_CiphertextLength();
+bool ChaCha20Test_Encrypt_CiphertextDiffers();
+bool ChaCha20Test_Encrypt_EmptyPlaintext();
+bool ChaCha20Test_Encrypt_Deterministic();
+bool ChaCha20Test_Encrypt_DifferentNonce();
+bool ChaCha20Test_Encrypt_DifferentKey();
+
+// Decrypt / Roundtrip
+bool ChaCha20Test_Roundtrip_Basic();
+bool ChaCha20Test_Roundtrip_WithAAD();
+bool ChaCha20Test_Roundtrip_4KB();
+bool ChaCha20Test_Roundtrip_4MB();
+bool ChaCha20Test_Roundtrip_1GB();
+bool ChaCha20Test_Roundtrip_SingleByte();
+bool ChaCha20Test_Decrypt_EmptyCiphertext();
+
+// Authentication failure
+bool ChaCha20Test_Auth_WrongKey();
+bool ChaCha20Test_Auth_WrongNonce();
+bool ChaCha20Test_Auth_TamperedCiphertext();
+bool ChaCha20Test_Auth_TamperedTag();
+bool ChaCha20Test_Auth_WrongAAD();
+bool ChaCha20Test_Auth_MissingAAD();
+bool ChaCha20Test_Auth_SpuriousAAD();
+
+// =============================================================================
 // Future Test Categories
 // =============================================================================
 
