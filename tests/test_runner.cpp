@@ -79,6 +79,43 @@ int main(int argc, char* argv[]) {
     Run(MlKemTest_WrongKeyImplicitRejection, "ML-KEM: wrong key implicit reject");
 
     // =============================================================================
+    // ChaCha20-Poly1305 Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(ChaCha20Test_GenerateKey_Succeeds,    "ChaCha20: key gen succeeds");
+    Run(ChaCha20Test_GenerateKey_Unique,      "ChaCha20: key gen unique");
+    Run(ChaCha20Test_GenerateNonce_Succeeds,  "ChaCha20: nonce gen succeeds");
+    Run(ChaCha20Test_GenerateNonce_Unique,    "ChaCha20: nonce gen unique");
+
+    std::cout << "\n";
+    Run(ChaCha20Test_Encrypt_Succeeds,        "ChaCha20: encrypt succeeds");
+    Run(ChaCha20Test_Encrypt_CiphertextLength,"ChaCha20: ct len == pt len");
+    Run(ChaCha20Test_Encrypt_CiphertextDiffers,"ChaCha20: ct differs from pt");
+    Run(ChaCha20Test_Encrypt_EmptyPlaintext,  "ChaCha20: empty pt -> nullopt");
+    Run(ChaCha20Test_Encrypt_Deterministic,   "ChaCha20: deterministic");
+    Run(ChaCha20Test_Encrypt_DifferentNonce,  "ChaCha20: diff nonce -> diff ct");
+    Run(ChaCha20Test_Encrypt_DifferentKey,    "ChaCha20: diff key -> diff ct");
+
+    std::cout << "\n";
+    Run(ChaCha20Test_Roundtrip_Basic,         "ChaCha20: roundtrip basic");
+    Run(ChaCha20Test_Roundtrip_WithAAD,       "ChaCha20: roundtrip with AAD");
+    Run(ChaCha20Test_Roundtrip_4KB,           "ChaCha20: roundtrip 4 KB");
+    Run(ChaCha20Test_Roundtrip_4MB,           "ChaCha20: roundtrip 4 MB");
+    //Run(ChaCha20Test_Roundtrip_1GB,           "ChaCha20: roundtrip 1 GB"); // This can take over 2 seconds to execute
+    Run(ChaCha20Test_Roundtrip_SingleByte,    "ChaCha20: roundtrip 1 byte");
+    Run(ChaCha20Test_Decrypt_EmptyCiphertext, "ChaCha20: empty ct -> nullopt");
+
+    std::cout << "\n";
+    Run(ChaCha20Test_Auth_WrongKey,           "ChaCha20: wrong key -> reject");
+    Run(ChaCha20Test_Auth_WrongNonce,         "ChaCha20: wrong nonce -> reject");
+    Run(ChaCha20Test_Auth_TamperedCiphertext, "ChaCha20: tampered ct -> reject");
+    Run(ChaCha20Test_Auth_TamperedTag,        "ChaCha20: tampered tag -> reject");
+    Run(ChaCha20Test_Auth_WrongAAD,           "ChaCha20: wrong AAD -> reject");
+    Run(ChaCha20Test_Auth_MissingAAD,         "ChaCha20: missing AAD -> reject");
+    Run(ChaCha20Test_Auth_SpuriousAAD,        "ChaCha20: spurious AAD -> reject");
+
+
+    // =============================================================================
     // Future Tests
     // =============================================================================
 
