@@ -76,8 +76,73 @@ namespace core::cryptography::chacha20_poly1305 {
 
     auto Decrypt(std::span<const std::uint8_t> ciphertext, const Tag& tag, const Key& key, const Nonce& nonce, std::span<const std::uint8_t> aad) 
     -> std::optional<std::vector<std::uint8_t>> { 
-        return {}; 
+
+        if (ciphertext.empty()) {
+            // TODO: Log Info
+            return std::nullopt;
+        }
+
+        EvpCipherCtxPtr ctx{EVP_CIPHER_CTX_new()};
+        if (!ctx) {
+            // TODO: Log Error
+            return std::nullopt;
+        }
+
+        if (EVP_DecryptInit_ex(ctx.get(), EVP_chacha20_poly1305(), nullptr, nullptr, nullptr) <= 0) {
+            // TODO: Log Error
+            return std::nullopt;
+        }
+
+        // Set nonce length
+        if (EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_AEAD_SET_IVLEN, static_cast<int>(kNonceBytes), nullptr) <= 0) {
+            // TODO: Log Error
+            return std::nullopt;
+        }
+
+        // Set key and nonce
+        if (EVP_DecryptInit_ex(ctx.get(), nullptr, nullptr, key.data(), nonce.data()) <= 0) {
+            // TODO: Log Error
+            return std::nullopt;
+        }
+
+        // Process AAD if provided
+        if (!aad.empty()) {
+            int aad_len = 0;
+            if (EVP_DecryptUpdate(ctx.get(), nullptr, &aad_len, aad.data(), static_cast<int>(aad.size())) <= 0) {
+                // TODO: Log Error
+                return std::nullopt;
+            }
+        }
+
+        // Decrypt ciphertext
+        std::vector<std::uint8_t> plaintext(ciphertext.size());
+        int out_len = 0;
+
+        if (EVP_DecryptUpdate(ctx.get(), plaintext.data(), &out_len, ciphertext.data(), static_cast<int>(ciphertext.size())) <= 0) {
+            // TODO: Log Error
+            return std::nullopt;
+        }
+
+        // Set the expected tag BEFORE finalize
+        // EVP_CTRL_AEAD_SET_TAG expects a non-const pointer, hence the const_cast
+        if (EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_AEAD_SET_TAG, static_cast<int>(kTagBytes), const_cast<std::uint8_t*>(tag.data())) <= 0) {
+            // TODO: Log Error
+            return std::nullopt;
+        }
+
+        // Finalize and verify authentication tag
+        int final_len = 0;
+        if (EVP_DecryptFinal_ex(ctx.get(), plaintext.data() + out_len, &final_len) <= 0) {
+            // Authentication failed, ciphertext was tampered with
+            // TODO: Log Error
+            return std::nullopt;
+        }
+
+        plaintext.resize(static_cast<std::size_t>(out_len + final_len));
+        return plaintext;
     }
+
+
 
     std::optional<Key> GenerateKey() { 
         Key key{};
