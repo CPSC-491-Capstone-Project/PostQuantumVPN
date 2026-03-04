@@ -29,6 +29,21 @@ bool BitUtilsTest_Roundtrip_BitsToBytes_To_BytesToBits();
 bool BitUtilsTest_Roundtrip_BytesToBits_To_BitsToBytes();
 
 // =============================================================================
+// Hex Helpers Tests
+// =============================================================================
+bool HexTest_Uint8();
+bool HexTest_Uint16();
+bool HexTest_Uint32();
+bool HexTest_Uint64();
+bool HexTest_Span_Empty();
+bool HexTest_Span_SingleByte();
+bool HexTest_Span_MultiByte();
+bool HexTest_Vector_Empty();
+bool HexTest_Vector_SingleByte();
+bool HexTest_Vector_MultiByte();
+bool HexTest_Array();
+
+// =============================================================================
 // ML-KEM (Kyber) Tests
 // =============================================================================
 bool MlKemTest_Roundtrip_768();
