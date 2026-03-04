@@ -34,7 +34,7 @@ namespace core::utils {
         result.reserve(digits + 2);
         result += "0x";
         for (std::size_t i{digits}; i > 0; --i) {
-            result += hex[(value >> ((i - 1) * 4)) & 0x0F];
+            result += kHex[(value >> ((i - 1) * 4)) & 0x0F];
         }
         return result;
     }
