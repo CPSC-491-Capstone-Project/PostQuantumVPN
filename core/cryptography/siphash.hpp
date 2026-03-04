@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
+#include <cstring>
 
 namespace core::cryptography::siphash {
 
@@ -43,6 +44,13 @@ namespace core::cryptography::siphash {
     };
 
     using SipHash24 = SipHash<2, 4>;
+
+    [[nodiscard]] Key inline NormalizeKey(Data input) noexcept {
+        Key key{};
+        const auto len = std::min(input.size(), kKeyBytes);
+        std::memcpy(key.data(), input.data(), len);
+        return key;
+    }
 
 } // namespace core::cryptography::siphash
 

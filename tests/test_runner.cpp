@@ -114,6 +114,21 @@ int main(int argc, char* argv[]) {
     Run(ChaCha20Test_Auth_MissingAAD,         "ChaCha20: missing AAD -> reject");
     Run(ChaCha20Test_Auth_SpuriousAAD,        "ChaCha20: spurious AAD -> reject");
 
+    // =============================================================================
+    // SipHash Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(SipHashTest_NormalizeKey_Empty,    "SipHash: normalize key empty");
+    Run(SipHashTest_NormalizeKey_Under16,  "SipHash: normalize key < 16B");
+    Run(SipHashTest_NormalizeKey_Exact16,  "SipHash: normalize key == 16B");
+    Run(SipHashTest_NormalizeKey_Over16,   "SipHash: normalize key > 16B");
+
+    std::cout << "\n";
+    Run(SipHashTest_BlankKey_BlankInput,   "SipHash: blank key, blank input");
+    Run(SipHashTest_BlankKey_NormalInput,  "SipHash: blank key, normal input");
+    Run(SipHashTest_NormalKey_BlankInput,  "SipHash: normal key, blank input");
+    Run(SipHashTest_NormalKey_NormalInput, "SipHash: normal key, normal input");
+
 
     // =============================================================================
     // Future Tests

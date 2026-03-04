@@ -3,6 +3,7 @@
 
 #include <bit>
 
+
 namespace core::cryptography::siphash {
 
     using core::utils::load64_le;

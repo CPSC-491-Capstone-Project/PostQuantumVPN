@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 #include <cstring>
+#include <string>
 
 namespace core::utils {
 
