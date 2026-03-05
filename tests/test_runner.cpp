@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "========================================\n";
     std::cout << "Running Test Suite\n";
-    std::cout << "========================================\n\n";
+    std::cout << "========================================\n";
 
     // =============================================================================
     // Random Tests
@@ -133,18 +133,12 @@ int main(int argc, char* argv[]) {
     // =============================================================================
     // SipHash Tests
     // =============================================================================
-    // std::cout << "\n";
-    // Run(SipHashTest_NormalizeKey_Empty,    "SipHash: normalize key empty");
-    // Run(SipHashTest_NormalizeKey_Under16,  "SipHash: normalize key < 16B");
-    // Run(SipHashTest_NormalizeKey_Exact16,  "SipHash: normalize key == 16B");
-    // Run(SipHashTest_NormalizeKey_Over16,   "SipHash: normalize key > 16B");
-
-    // std::cout << "\n";
-    // Run(SipHashTest_BlankKey_BlankInput,   "SipHash: blank key, blank input");
-    // Run(SipHashTest_BlankKey_NormalInput,  "SipHash: blank key, normal input");
-    // Run(SipHashTest_NormalKey_BlankInput,  "SipHash: normal key, blank input");
-    // Run(SipHashTest_NormalKey_NormalInput, "SipHash: normal key, normal input");
-
+    std::cout << "\n";
+    Run(SipHashTest_BlankKey_BlankInput,   "SipHash: blank key, blank input");
+    Run(SipHashTest_BlankKey_NormalInput,  "SipHash: blank key, normal input");
+    Run(SipHashTest_NormalKey_BlankInput,  "SipHash: normal key, blank input");
+    Run(SipHashTest_NormalKey_NormalInput, "SipHash: normal key, normal input");
+    Run(SipHashTest_NormalKey_LargeInput,  "SipHash: normal key, large input");
 
     // =============================================================================
     // Future Tests

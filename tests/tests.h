@@ -93,17 +93,12 @@ bool ChaCha20Test_Auth_SpuriousAAD();
 // SipHash Tests
 // =============================================================================
 
-// NormalizeKey
-bool SipHashTest_NormalizeKey_Empty();
-bool SipHashTest_NormalizeKey_Under16();
-bool SipHashTest_NormalizeKey_Exact16();
-bool SipHashTest_NormalizeKey_Over16();
-
 // SipHash-2-4 correctness
 bool SipHashTest_BlankKey_BlankInput();
 bool SipHashTest_BlankKey_NormalInput();
 bool SipHashTest_NormalKey_BlankInput();
 bool SipHashTest_NormalKey_NormalInput();
+bool SipHashTest_NormalKey_LargeInput();
 
 // =============================================================================
 // Future Test Categories

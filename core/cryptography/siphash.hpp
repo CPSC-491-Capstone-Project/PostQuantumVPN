@@ -5,6 +5,7 @@
 #include <array>
 #include <span>
 #include <cstring>
+#include <string_view>
 
 namespace core::cryptography::siphash {
 
@@ -45,11 +46,33 @@ namespace core::cryptography::siphash {
 
     using SipHash24 = SipHash<2, 4>;
 
-    [[nodiscard]] Key inline NormalizeKey(Data input) noexcept {
+
+    // Normalization functions to handle strings 
+    // and other byte containers
+
+    [[nodiscard]] inline Key NormalizeKey(Data input) noexcept {
         Key key{};
         const auto len = std::min(input.size(), kKeyBytes);
         std::memcpy(key.data(), input.data(), len);
         return key;
+    }
+
+    [[nodiscard]] inline Key NormalizeKey(std::string_view input) noexcept {
+        return NormalizeKey(Data{
+            reinterpret_cast<const uint8_t*>(input.data()),
+            input.size()
+        });
+    }
+
+    [[nodiscard]] inline Data NormalizeData(Data input) noexcept {
+        return input;
+    }
+
+    [[nodiscard]] inline Data NormalizeData(std::string_view input) noexcept {
+        return {
+            reinterpret_cast<const uint8_t*>(input.data()),
+            input.size()
+        };
     }
 
 } // namespace core::cryptography::siphash
