@@ -1,4 +1,6 @@
-#pragma once
+#ifndef LOGLEVEL_H
+#define LOGLEVEL_H
+
 #include <string>
 
 // Priority levels for log events
@@ -16,3 +18,5 @@ std::string logLevelToString(LogLevel level) {
     if (level == LogLevel::ERROR) return "ERROR";
     return "UNKNOWN";
 }
+
+#endif

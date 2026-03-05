@@ -1,7 +1,11 @@
-#pragma once
+#ifndef LOGGER_H
+#define LOGGER_H
+
 #include "LogEvent.h"
 #include <fstream>
 #include <mutex>
+#include <sstream>
+#include <iomanip>
 
 class Logger {
 public:
@@ -16,12 +20,13 @@ public:
 
         mtx.lock();
 
-        std::string timeStr = ctime(&event.timestamp);
-        if (!timeStr.empty())
-            timeStr.pop_back();
+        // Convert chrono time point to readable string
+        auto time_t_val = std::chrono::system_clock::to_time_t(event.timestamp);
+        std::ostringstream oss;
+        oss << std::put_time(std::localtime(&time_t_val), "%Y-%m-%d %H:%M:%S");
 
         logFile << "[" << logLevelToString(event.level) << "] "
-                << "[" << timeStr << "] "
+                << "[" << oss.str() << "] "
                 << event.message << "\n";
 
         logFile.flush();
@@ -33,3 +38,5 @@ private:
     std::ofstream logFile;
     std::mutex    mtx; // Prevents concurrent writes from multiple threads
 };
+
+#endif
