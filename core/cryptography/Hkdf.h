@@ -1,4 +1,6 @@
-#pragma once
+#ifndef HKDF_H
+#define HKDF_H
+
 #include <openssl/evp.h>
 #include <openssl/kdf.h>
 #include <vector>
@@ -72,3 +74,5 @@ public:
         return outputKey;
     }
 };
+
+#endif
