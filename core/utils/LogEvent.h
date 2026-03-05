@@ -1,16 +1,19 @@
-#pragma once
+#ifndef LOGEVENT_H
+#define LOGEVENT_H
+
 #include "LogLevel.h"
-#include <ctime>
+#include <chrono>
+#include <string>
 
 // Represents a single log event with a level, timestamp and message
 struct LogEvent {
-    LogLevel    level;
-    time_t      timestamp;
-    std::string message;
+    LogLevel                                  level;
+    std::chrono::system_clock::time_point     timestamp;
+    std::string                               message;
 
     LogEvent(LogLevel lvl, std::string msg) {
         level     = lvl;
-        timestamp = time(0);
+        timestamp = std::chrono::system_clock::now();
         message   = msg;
     }
 
@@ -21,3 +24,5 @@ struct LogEvent {
         return timestamp > other.timestamp;
     }
 };
+
+#endif
