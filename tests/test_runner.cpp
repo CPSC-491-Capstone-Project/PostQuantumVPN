@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "========================================\n";
     std::cout << "Running Test Suite\n";
-    std::cout << "========================================\n\n";
+    std::cout << "========================================\n";
 
     // =============================================================================
     // Random Tests
@@ -68,6 +68,22 @@ int main(int argc, char* argv[]) {
     Run(BitUtilsTest_BytesToBits_AllOnes, "BytesToBits: all ones (0xFF)");
     Run(BitUtilsTest_Roundtrip_BytesToBits_To_BitsToBytes, "Roundtrip: BytesToBits --> BitsToBytes");
     Run(BitUtilsTest_Roundtrip_BitsToBytes_To_BytesToBits, "Roundtrip: BitsToBytes --> BytesToBits");
+
+    // =============================================================================
+    // Hex Helpers Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(HexTest_Uint8,             "Hex: uint8_t");
+    Run(HexTest_Uint16,            "Hex: uint16_t");
+    Run(HexTest_Uint32,            "Hex: uint32_t");
+    Run(HexTest_Uint64,            "Hex: uint64_t");
+    Run(HexTest_Span_Empty,        "Hex: span empty");
+    Run(HexTest_Span_SingleByte,   "Hex: span single byte");
+    Run(HexTest_Span_MultiByte,    "Hex: span multi byte");
+    Run(HexTest_Vector_Empty,      "Hex: vector empty");
+    Run(HexTest_Vector_SingleByte, "Hex: vector single byte");
+    Run(HexTest_Vector_MultiByte,  "Hex: vector multi byte");
+    Run(HexTest_Array,             "Hex: std::array");
 
     // =============================================================================
     // ML-KEM Tests
@@ -114,6 +130,15 @@ int main(int argc, char* argv[]) {
     Run(ChaCha20Test_Auth_MissingAAD,         "ChaCha20: missing AAD -> reject");
     Run(ChaCha20Test_Auth_SpuriousAAD,        "ChaCha20: spurious AAD -> reject");
 
+    // =============================================================================
+    // SipHash Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(SipHashTest_BlankKey_BlankInput,   "SipHash: blank key, blank input");
+    Run(SipHashTest_BlankKey_NormalInput,  "SipHash: blank key, normal input");
+    Run(SipHashTest_NormalKey_BlankInput,  "SipHash: normal key, blank input");
+    Run(SipHashTest_NormalKey_NormalInput, "SipHash: normal key, normal input");
+    Run(SipHashTest_NormalKey_LargeInput,  "SipHash: normal key, large input");
 
     // =============================================================================
     // Future Tests

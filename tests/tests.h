@@ -29,6 +29,21 @@ bool BitUtilsTest_Roundtrip_BitsToBytes_To_BytesToBits();
 bool BitUtilsTest_Roundtrip_BytesToBits_To_BitsToBytes();
 
 // =============================================================================
+// Hex Helpers Tests
+// =============================================================================
+bool HexTest_Uint8();
+bool HexTest_Uint16();
+bool HexTest_Uint32();
+bool HexTest_Uint64();
+bool HexTest_Span_Empty();
+bool HexTest_Span_SingleByte();
+bool HexTest_Span_MultiByte();
+bool HexTest_Vector_Empty();
+bool HexTest_Vector_SingleByte();
+bool HexTest_Vector_MultiByte();
+bool HexTest_Array();
+
+// =============================================================================
 // ML-KEM (Kyber) Tests
 // =============================================================================
 bool MlKemTest_Roundtrip_768();
@@ -73,6 +88,17 @@ bool ChaCha20Test_Auth_TamperedTag();
 bool ChaCha20Test_Auth_WrongAAD();
 bool ChaCha20Test_Auth_MissingAAD();
 bool ChaCha20Test_Auth_SpuriousAAD();
+
+// =============================================================================
+// SipHash Tests
+// =============================================================================
+
+// SipHash-2-4 correctness
+bool SipHashTest_BlankKey_BlankInput();
+bool SipHashTest_BlankKey_NormalInput();
+bool SipHashTest_NormalKey_BlankInput();
+bool SipHashTest_NormalKey_NormalInput();
+bool SipHashTest_NormalKey_LargeInput();
 
 // =============================================================================
 // Future Test Categories

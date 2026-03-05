@@ -3,6 +3,8 @@
 
 #include <cstdint>
 #include <span>
+#include <cstring>
+#include <string>
 
 namespace core::utils {
 
@@ -13,10 +15,22 @@ namespace core::utils {
     void BytesToBits(std::span<const uint8_t> bytes, std::span<uint8_t> bits);
 
     // Reads a 64-bit value from a byte buffer in little-endian order.
-    inline uint64_t load64_le(const uint8_t *src);
+    inline uint64_t load64_le(const uint8_t *src) {
+        uint64_t val;
+        std::memcpy(&val, src, 8);
+        if constexpr (std::endian::native != std::endian::little) {
+            val = std::byteswap(val);
+        }
+        return val;
+    }
 
     // Writes a 64-bit value to a byte buffer in little-endian order.
-    inline void store64_le(uint8_t *dst, uint64_t val);
+    inline void store64_le(uint8_t *dst, uint64_t val) {   
+        if constexpr (std::endian::native != std::endian::little) {
+            val = std::byteswap(val);
+        }
+        std::memcpy(dst, &val, 8);
+    }
 
 
 } // namespace core::utils
