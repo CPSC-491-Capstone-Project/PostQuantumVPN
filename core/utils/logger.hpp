@@ -3,42 +3,34 @@
 
 #include "log_event.hpp"
 #include <fstream>
+#include <iostream>
 #include <mutex>
-#include <sstream>
-#include <iomanip>
+#include <string>
+
 
 namespace core::utils {
 
     class Logger {
     public:
+        // Singleton Design Pattern
+        Logger(const Logger&) = delete;
+        Logger(Logger&&) = delete;
+        Logger& operator=(const Logger&) = delete;
+        Logger& operator=(Logger&&) = delete;
 
-        Logger(std::string filename) {
-            logFile.open(filename);
-        }
+        static Logger& getInstance();
 
-        // Writes a log event to the file in a thread safe manner
-        void log(LogLevel level, std::string message) {
-            LogEvent event(level, message);
-
-            mtx.lock();
-
-            // Convert chrono time point to readable string
-            auto time_t_val = std::chrono::system_clock::to_time_t(event.timestamp);
-            std::ostringstream oss;
-            oss << std::put_time(std::localtime(&time_t_val), "%Y-%m-%d %H:%M:%S");
-
-            logFile << "[" << logLevelToString(event.level) << "] "
-                    << "[" << oss.str() << "] "
-                    << event.message << "\n";
-
-            logFile.flush();
-
-            mtx.unlock();
-        }
+        void init(const std::string& filename);
+        void init(std::ostream& os);
+        void log(LogLevel, const std::string& message);
 
     private:
-        std::ofstream logFile;
-        std::mutex    mtx; // Prevents concurrent writes from multiple threads
+
+        Logger() = default;
+
+        std::ofstream logFile_;
+        std::ostream* stream_{nullptr};
+        std::mutex mutex_; // Prevents concurrent writes from multiple threads
     };
 } // namespace core::utils
 
