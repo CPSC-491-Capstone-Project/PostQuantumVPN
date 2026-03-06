@@ -6,6 +6,7 @@
 #include <chrono>
 #include <string>
 #include <compare>
+#include <iomanip>
 
 namespace core::utils {
 

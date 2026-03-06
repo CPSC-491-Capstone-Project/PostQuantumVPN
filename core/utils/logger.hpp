@@ -23,6 +23,7 @@ namespace core::utils {
         void init(const std::string& filename);
         void init(std::ostream& os);
         void log(LogLevel, const std::string& message);
+        void setLogLevel(LogLevel level);
 
         static void Emergency(const std::string& msg) { getInstance().log(LogLevel::EMERGENCY, msg); }
         static void Alert(const std::string& msg)     { getInstance().log(LogLevel::ALERT, msg); }

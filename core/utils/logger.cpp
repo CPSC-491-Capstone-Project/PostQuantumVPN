@@ -32,5 +32,9 @@ namespace core::utils {
         stream_->flush();
     }
 
+    void Logger::setLogLevel(LogLevel level) {
+        threshold_ = level;
+    }
+
 
 } // namespace core::utils
