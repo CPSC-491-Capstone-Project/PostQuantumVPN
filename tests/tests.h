@@ -4,6 +4,15 @@
 #include <string_view>
 #include <iostream>
 
+// =============================================================================
+// Logger Tests
+// =============================================================================
+bool LoggerTest_SingleMessage();
+bool LoggerTest_AllLevels();
+bool LoggerTest_TimestampPresent();
+bool LoggerTest_MultipleMessages();
+bool LoggerTest_MT_AllEventsWritten();
+bool LoggerTest_MT_NoGarbledLines();
 
 // =============================================================================
 // Random Tests
