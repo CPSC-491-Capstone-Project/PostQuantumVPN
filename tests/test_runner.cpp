@@ -1,9 +1,12 @@
 #include "tests.h"
 #include "timer.hpp"
+#include "logger.hpp"
 
 #include <string_view>
 #include <iostream>
 #include <iomanip>
+
+using core::utils::Logger;
 
 static int total_tests = 0;
 static int passed_tests = 0;
@@ -39,6 +42,9 @@ int main(int argc, char* argv[]) {
 
     (void)argc;
     (void)argv;
+
+    // Initialize the global logger as everything will need this
+    Logger::getInstance().init(std::cerr);
 
     std::cout << "========================================\n";
     std::cout << "Running Test Suite\n";
