@@ -45,6 +45,17 @@ int main(int argc, char* argv[]) {
     std::cout << "========================================\n";
 
     // =============================================================================
+    // Logger Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(LoggerTest_SingleMessage,      "Logger: single message");
+    Run(LoggerTest_AllLevels,          "Logger: all levels");
+    Run(LoggerTest_TimestampPresent,   "Logger: timestamp present");
+    Run(LoggerTest_MultipleMessages,   "Logger: multiple messages");
+    Run(LoggerTest_MT_AllEventsWritten,"Logger: MT all events written");
+    Run(LoggerTest_MT_NoGarbledLines,  "Logger: MT no garbled lines");
+
+    // =============================================================================
     // Random Tests
     // =============================================================================
     

@@ -12,7 +12,7 @@ namespace core::utils {
         ERROR = 3
     };
 
-    std::string logLevelToString(LogLevel level) {
+    std::string inline logLevelToString(LogLevel level) {
         if (level == LogLevel::DEBUG) return "DEBUG";
         if (level == LogLevel::INFO)  return "INFO";
         if (level == LogLevel::WARN)  return "WARN";
