@@ -1,7 +1,10 @@
 #include "ml_kem.hpp"
+#include "logger.hpp"
 
 #include <openssl/core_names.h>
 #include <openssl/params.h>
+
+using core::utils::Logger;
 
 // previously called Kyber
 
@@ -16,7 +19,7 @@ namespace core::cryptography::ml_kem {
             EvpPkeyCtxPtr ctx{EVP_PKEY_CTX_new_from_name(nullptr, name, nullptr)};
 
             if (!ctx) {
-                // TODO: Log error
+                Logger::Error("ML-KEM: EVP_PKEY_CTX_new_from_name failed — ensure OpenSSL >= 3.5");
                 // Chances are the OpenSSL build is not >= 3.5
                 return std::nullopt;
             }
