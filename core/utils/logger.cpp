@@ -20,11 +20,20 @@ namespace core::utils {
     }
 
     void Logger::log(LogLevel level, const std::string& message) {
+        // Only log if the event is at or more severe than the threshold
+        if (level > threshold_) {
+            return;
+        }
+        
         LogEvent event(level, message);
         std::scoped_lock<std::mutex> lock(mutex_);
 
         *stream_ << event.toString() << "\n";
         stream_->flush();
+    }
+
+    void Logger::setLogLevel(LogLevel level) {
+        threshold_ = level;
     }
 
 

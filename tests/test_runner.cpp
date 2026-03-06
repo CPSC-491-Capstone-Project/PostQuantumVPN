@@ -60,6 +60,13 @@ int main(int argc, char* argv[]) {
     Run(LoggerTest_MultipleMessages,   "Logger: multiple messages");
     Run(LoggerTest_MT_AllEventsWritten,"Logger: MT all events written");
     Run(LoggerTest_MT_NoGarbledLines,  "Logger: MT no garbled lines");
+    Run(LoggerTest_SetLevel_FiltersBelowThreshold,  "Logger: setLevel filters below");
+    Run(LoggerTest_SetLevel_AllowsAtThreshold,       "Logger: setLevel allows at/above");
+    Run(LoggerTest_SetLevel_EmergencyOnly,           "Logger: emergency-only mode");
+    Run(LoggerTest_SetLevel_DebugLogsEverything,     "Logger: debug logs everything");
+    Run(LoggerTest_SetLevel_ChangesMidStream,        "Logger: level change mid-stream");
+    Run(LoggerTest_LogEvent_SeverityOrdering,        "LogEvent: severity ordering");
+    Run(LoggerTest_LogEvent_TimestampBreaksTie,      "LogEvent: timestamp tiebreak");
 
     // =============================================================================
     // Random Tests

@@ -13,6 +13,13 @@ bool LoggerTest_TimestampPresent();
 bool LoggerTest_MultipleMessages();
 bool LoggerTest_MT_AllEventsWritten();
 bool LoggerTest_MT_NoGarbledLines();
+bool LoggerTest_SetLevel_FiltersBelowThreshold();
+bool LoggerTest_SetLevel_AllowsAtThreshold();
+bool LoggerTest_SetLevel_EmergencyOnly();
+bool LoggerTest_SetLevel_DebugLogsEverything();
+bool LoggerTest_SetLevel_ChangesMidStream();
+bool LoggerTest_LogEvent_SeverityOrdering();
+bool LoggerTest_LogEvent_TimestampBreaksTie();
 
 // =============================================================================
 // Random Tests
