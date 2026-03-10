@@ -6,17 +6,27 @@
 namespace core::utils {
     // Priority levels for log events
     enum class LogLevel {
-        DEBUG = 0,
-        INFO  = 1,
-        WARN  = 2,
-        ERROR = 3
+        EMERGENCY = 0,  // System unusable
+        ALERT     = 1,  // Immediate action required
+        CRITICAL  = 2,  // Critical failure
+        ERROR     = 3,  // Operation failed
+        WARNING   = 4,  // Unexpected but not failed
+        NOTICE    = 5,  // Normal but significant
+        INFO      = 6,  // Routine operational
+        DEBUG     = 7   // Verbose troubleshooting
     };
 
-    std::string inline logLevelToString(LogLevel level) {
-        if (level == LogLevel::DEBUG) return "DEBUG";
-        if (level == LogLevel::INFO)  return "INFO";
-        if (level == LogLevel::WARN)  return "WARN";
-        if (level == LogLevel::ERROR) return "ERROR";
+    inline std::string logLevelToString(LogLevel level) {
+        switch (level) {
+            case LogLevel::EMERGENCY: return "EMERGENCY";
+            case LogLevel::ALERT:     return "ALERT";
+            case LogLevel::CRITICAL:  return "CRITICAL";
+            case LogLevel::ERROR:     return "ERROR";
+            case LogLevel::WARNING:   return "WARNING";
+            case LogLevel::NOTICE:    return "NOTICE";
+            case LogLevel::INFO:      return "INFO";
+            case LogLevel::DEBUG:     return "DEBUG";
+        }
         return "UNKNOWN";
     }
 } // namespace core::utils

@@ -13,6 +13,13 @@ bool LoggerTest_TimestampPresent();
 bool LoggerTest_MultipleMessages();
 bool LoggerTest_MT_AllEventsWritten();
 bool LoggerTest_MT_NoGarbledLines();
+bool LoggerTest_SetLevel_FiltersBelowThreshold();
+bool LoggerTest_SetLevel_AllowsAtThreshold();
+bool LoggerTest_SetLevel_EmergencyOnly();
+bool LoggerTest_SetLevel_DebugLogsEverything();
+bool LoggerTest_SetLevel_ChangesMidStream();
+bool LoggerTest_LogEvent_SeverityOrdering();
+bool LoggerTest_LogEvent_TimestampBreaksTie();
 
 // =============================================================================
 // Random Tests
@@ -109,6 +116,26 @@ bool SipHashTest_NormalKey_BlankInput();
 bool SipHashTest_NormalKey_NormalInput();
 bool SipHashTest_NormalKey_LargeInput();
 
+// =============================================================================
+// X25519 Tests
+// =============================================================================
+bool X25519Test_GenerateKeyPair_Succeeds();
+bool X25519Test_GenerateKeyPair_PublicDiffersFromPrivate();
+bool X25519Test_GenerateKeyPair_UniquePrivateKeys();
+bool X25519Test_GenerateKeyPair_UniquePublicKeys();
+bool X25519Test_GenerateKeyPair_PrivateKeySize();
+bool X25519Test_GenerateKeyPair_PublicKeySize();
+bool X25519Test_PublicKeyFromPrivate_MatchesKeyPair();
+bool X25519Test_PublicKeyFromPrivate_Deterministic();
+bool X25519Test_PublicKeyFromPrivate_UniquePerPrivateKey();
+bool X25519Test_DeriveSharedSecret_Succeeds();
+bool X25519Test_DeriveSharedSecret_Size();
+bool X25519Test_DeriveSharedSecret_Commutative();
+bool X25519Test_DeriveSharedSecret_DiffersFromPublicKeys();
+bool X25519Test_DeriveSharedSecret_Deterministic();
+bool X25519Test_DeriveSharedSecret_DifferentPeerGivesDifferentSecret();
+bool X25519Test_DeriveSharedSecret_WrongPrivateKey();
+bool X25519Test_DeriveSharedSecret_ThreePartyIndependent();
 // =============================================================================
 // Future Test Categories
 // =============================================================================

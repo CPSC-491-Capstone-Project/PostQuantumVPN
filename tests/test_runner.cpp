@@ -1,6 +1,7 @@
 #include "tests.h"
 #include "timer.hpp"
 #include "logger.hpp"
+#include "x25519.hpp"
 
 #include <string_view>
 #include <iostream>
@@ -60,6 +61,13 @@ int main(int argc, char* argv[]) {
     Run(LoggerTest_MultipleMessages,   "Logger: multiple messages");
     Run(LoggerTest_MT_AllEventsWritten,"Logger: MT all events written");
     Run(LoggerTest_MT_NoGarbledLines,  "Logger: MT no garbled lines");
+    Run(LoggerTest_SetLevel_FiltersBelowThreshold,  "Logger: setLevel filters below");
+    Run(LoggerTest_SetLevel_AllowsAtThreshold,       "Logger: setLevel allows at/above");
+    Run(LoggerTest_SetLevel_EmergencyOnly,           "Logger: emergency-only mode");
+    Run(LoggerTest_SetLevel_DebugLogsEverything,     "Logger: debug logs everything");
+    Run(LoggerTest_SetLevel_ChangesMidStream,        "Logger: level change mid-stream");
+    Run(LoggerTest_LogEvent_SeverityOrdering,        "LogEvent: severity ordering");
+    Run(LoggerTest_LogEvent_TimestampBreaksTie,      "LogEvent: timestamp tiebreak");
 
     // =============================================================================
     // Random Tests
@@ -158,6 +166,31 @@ int main(int argc, char* argv[]) {
     Run(SipHashTest_NormalKey_LargeInput,  "SipHash: normal key, large input");
 
     // =============================================================================
+    // X25519 Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(X25519Test_GenerateKeyPair_Succeeds,                  "X25519: keygen succeeds");
+    Run(X25519Test_GenerateKeyPair_PublicDiffersFromPrivate,  "X25519: pub != priv");
+    Run(X25519Test_GenerateKeyPair_UniquePrivateKeys,         "X25519: unique private keys");
+    Run(X25519Test_GenerateKeyPair_UniquePublicKeys,          "X25519: unique public keys");
+    Run(X25519Test_GenerateKeyPair_PrivateKeySize,            "X25519: private key = 32 bytes");
+    Run(X25519Test_GenerateKeyPair_PublicKeySize,             "X25519: public key = 32 bytes");
+
+    std::cout << "\n";
+    Run(X25519Test_PublicKeyFromPrivate_MatchesKeyPair,       "X25519: pub from priv matches");
+    Run(X25519Test_PublicKeyFromPrivate_Deterministic,        "X25519: pub from priv deterministic");
+    Run(X25519Test_PublicKeyFromPrivate_UniquePerPrivateKey,  "X25519: unique pub per priv");
+
+    std::cout << "\n";
+    Run(X25519Test_DeriveSharedSecret_Succeeds,                    "X25519: derive succeeds");
+    Run(X25519Test_DeriveSharedSecret_Size,                        "X25519: secret = 32 bytes");
+    Run(X25519Test_DeriveSharedSecret_Commutative,                 "X25519: ECDH commutative");
+    Run(X25519Test_DeriveSharedSecret_DiffersFromPublicKeys,       "X25519: secret != pub keys");
+    Run(X25519Test_DeriveSharedSecret_Deterministic,               "X25519: derive deterministic");
+    Run(X25519Test_DeriveSharedSecret_DifferentPeerGivesDifferentSecret, "X25519: diff peer -> diff secret");
+    Run(X25519Test_DeriveSharedSecret_WrongPrivateKey,             "X25519: wrong priv -> diff secret");
+    Run(X25519Test_DeriveSharedSecret_ThreePartyIndependent,       "X25519: 3-party independent");
+            // =============================================================================
     // Future Tests
     // =============================================================================
 
