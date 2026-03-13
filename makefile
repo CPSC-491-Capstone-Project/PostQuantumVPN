@@ -8,7 +8,7 @@ WARN := -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion #-Werror
 STD := -std=c++23
 OPT := -O2
 DEP := -MMD -MP
-INCLUDES := -Iclient -Iserver -Itests -Icore -Icore/os/$(PLATFORM) -Icore/cryptography -Icore/utils
+INCLUDES := -Iclient -Iserver -Itests -Icore -Icore/os/$(PLATFORM) -Icore/cryptography -Icore/utils -Icore/network
 
 
 # ----- File Extensions -----
@@ -69,7 +69,7 @@ OBJDIR := obj
 BINDIR := bin
 
 # ----- Source & Dependencies -----
-CORE_SRCS   := $(wildcard core/*.$(CXX_EXT)) $(wildcard core/os/$(PLATFORM)/*.$(CXX_EXT)) $(wildcard core/cryptography/*.$(CXX_EXT)) $(wildcard core/utils/*.$(CXX_EXT))
+CORE_SRCS   := $(wildcard core/*.$(CXX_EXT)) $(wildcard core/os/$(PLATFORM)/*.$(CXX_EXT)) $(wildcard core/cryptography/*.$(CXX_EXT)) $(wildcard core/utils/*.$(CXX_EXT)) $(wildcard core/network/*.$(CXX_EXT))
 CLIENT_SRCS := $(wildcard client/*.$(CXX_EXT))
 SERVER_SRCS := $(wildcard server/*.$(CXX_EXT))
 TEST_SRCS   := $(wildcard tests/*.$(CXX_EXT))
