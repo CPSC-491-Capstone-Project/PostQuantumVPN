@@ -163,6 +163,29 @@ namespace core::network {
         };
     }
 
+    std::optional<Endpoint> UDPSocket::GetLocalEndpoint() const {
+        if (!IsOpen()) {
+            Logger::Error("UDPSocket: GetLocalEndpoint called on closed socket");
+            return std::nullopt;
+        }
+
+        sockaddr_in addr{};
+        socklen_t len = sizeof(addr);
+
+        if (::getsockname(handle_, reinterpret_cast<sockaddr*>(&addr), &len) < 0) {
+            Logger::Error("UDPSocket: getsockname failed for socket: " + std::to_string(handle_));
+            return std::nullopt;
+        }
+
+        char ip_buf[INET_ADDRSTRLEN]{};
+        ::inet_ntop(AF_INET, &addr.sin_addr, ip_buf, sizeof(ip_buf));
+
+        return Endpoint{
+            .ip = std::string(ip_buf),
+            .port = ntohs(addr.sin_port)
+        };
+    }
+
 
 } // namespace core::network
 

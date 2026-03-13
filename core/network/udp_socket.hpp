@@ -50,6 +50,7 @@ namespace core::network {
 
         [[nodiscard]] SocketHandle GetHandle() const { return handle_; }
         [[nodiscard]] bool IsOpen() const { return handle_ != kInvalidSocket; }
+        [[nodiscard]] std::optional<Endpoint> GetLocalEndpoint() const;
 
     private:
         SocketHandle handle_{kInvalidSocket};

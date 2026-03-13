@@ -67,7 +67,6 @@ bool MlKemTest_SharedSecretSize();
 bool MlKemTest_EncapsulateUniqueness();
 bool MlKemTest_WrongKeyImplicitRejection();
 
-
 // =============================================================================
 // ChaCha20-Poly1305 Tests
 // =============================================================================
@@ -136,6 +135,18 @@ bool X25519Test_DeriveSharedSecret_Deterministic();
 bool X25519Test_DeriveSharedSecret_DifferentPeerGivesDifferentSecret();
 bool X25519Test_DeriveSharedSecret_WrongPrivateKey();
 bool X25519Test_DeriveSharedSecret_ThreePartyIndependent();
+
+// =============================================================================
+// UDP Socket Tests
+// =============================================================================
+
+bool UDPSocketTest_OpenClose();
+bool UDPSocketTest_Bind();
+bool UDPSocketTest_SendToReceiveFrom();
+bool UDPSocketTest_Loopback_SenderInfo();
+bool UDPSocketTest_Loopback_1KB();
+bool UDPSocketTest_ExternalDNSQuery();
+
 // =============================================================================
 // Future Test Categories
 // =============================================================================
