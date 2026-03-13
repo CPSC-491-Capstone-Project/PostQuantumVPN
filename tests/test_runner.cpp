@@ -36,7 +36,10 @@ void Run(bool (*test)(), std::string_view name) {
         std::cout << RED   << "[FAIL]" << RESET;
     }
 
-    std::cout << "  " << timer.ElapsedStr() << "\n";
+    // I decided we should flush after each test. That way if
+    // a test crashes the program, we can pinpoint which test did so.
+    // Plus we see results in real time
+    std::cout << "  " << timer.ElapsedStr() << std::endl;
 }
 
 int main(int argc, char* argv[]) {
