@@ -36,7 +36,10 @@ void Run(bool (*test)(), std::string_view name) {
         std::cout << RED   << "[FAIL]" << RESET;
     }
 
-    std::cout << "  " << timer.ElapsedStr() << "\n";
+    // I decided we should flush after each test. That way if
+    // a test crashes the program, we can pinpoint which test did so.
+    // Plus we see results in real time
+    std::cout << "  " << timer.ElapsedStr() << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -190,7 +193,20 @@ int main(int argc, char* argv[]) {
     Run(X25519Test_DeriveSharedSecret_DifferentPeerGivesDifferentSecret, "X25519: diff peer -> diff secret");
     Run(X25519Test_DeriveSharedSecret_WrongPrivateKey,             "X25519: wrong priv -> diff secret");
     Run(X25519Test_DeriveSharedSecret_ThreePartyIndependent,       "X25519: 3-party independent");
-            // =============================================================================
+
+    // =============================================================================
+    // UDP Socket Tests
+    // =============================================================================
+
+    std::cout << "\n";
+    Run(UDPSocketTest_OpenClose,           "UDPSocket: open and close");
+    Run(UDPSocketTest_Bind,                "UDPSocket: bind ephemeral port");
+    Run(UDPSocketTest_SendToReceiveFrom,   "UDPSocket: send and receive");
+    Run(UDPSocketTest_Loopback_SenderInfo, "UDPSocket: loopback sender info");
+    Run(UDPSocketTest_Loopback_1KB,        "UDPSocket: loopback 1 KB");
+    Run(UDPSocketTest_ExternalDNSQuery,    "UDPSocket: 8.8.8.8:53 DNS query");
+
+    // =============================================================================
     // Future Tests
     // =============================================================================
 
