@@ -1,6 +1,9 @@
 #include "chacha20_poly1305.hpp"
+#include "logger.hpp"
 
 #include <openssl/rand.h>
+
+using core::utils::Logger;
 
 namespace core::cryptography::chacha20_poly1305 {
 
@@ -8,30 +11,30 @@ namespace core::cryptography::chacha20_poly1305 {
     -> std::optional<EncryptResult> { 
         
         if (plaintext.empty()) {
-            // TODO: Log Info
+            Logger::Info("ChaCha20-Poly1305: Encrypt called with empty plaintext");
             return std::nullopt;
         }
 
         EvpCipherCtxPtr ctx{EVP_CIPHER_CTX_new()};
         if (!ctx) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Failed to create cipher context");
             return std::nullopt;
         }
 
         if (EVP_EncryptInit_ex(ctx.get(), EVP_chacha20_poly1305(), nullptr, nullptr, nullptr) <= 0) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: EVP_EncryptInit_ex failed for cipher setup");
             return std::nullopt;
         }
 
         // Explicitly set nonce length to 12 bytes
         if (EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_AEAD_SET_IVLEN, static_cast<int>(kNonceBytes), nullptr) <= 0) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Failed to set nonce length");
             return std::nullopt;
         }
 
         // Set key and nonce
         if (EVP_EncryptInit_ex(ctx.get(), nullptr, nullptr, key.data(), nonce.data()) <= 0) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Failed to set key and nonce");
             return std::nullopt;
         }
 
@@ -39,7 +42,7 @@ namespace core::cryptography::chacha20_poly1305 {
         if (!aad.empty()) {
             int aad_len = 0;
             if (EVP_EncryptUpdate(ctx.get(), nullptr, &aad_len, aad.data(), static_cast<int>(aad.size())) <= 0) {
-                // TODO: Log Error
+                Logger::Error("ChaCha20-Poly1305: Failed to process AAD");
                 return std::nullopt;
             }
         }
@@ -49,13 +52,13 @@ namespace core::cryptography::chacha20_poly1305 {
         int out_len = 0;
 
         if (EVP_EncryptUpdate(ctx.get(), ciphertext.data(), &out_len, plaintext.data(), static_cast<int>(plaintext.size())) <= 0) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Encryption failed during update");
             return std::nullopt;
         }
 
         int final_len = 0;
         if (EVP_EncryptFinal_ex(ctx.get(), ciphertext.data() + out_len, &final_len) <= 0) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Encryption failed during finalization");
             return std::nullopt;
         }
 
@@ -64,7 +67,7 @@ namespace core::cryptography::chacha20_poly1305 {
         // Extract the Poly1305 authentication tag
         Tag tag{};
         if (EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_AEAD_GET_TAG, static_cast<int>(kTagBytes), tag.data()) <= 0) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Failed to extract authentication tag");
             return std::nullopt;
         }
 
@@ -78,30 +81,30 @@ namespace core::cryptography::chacha20_poly1305 {
     -> std::optional<std::vector<std::uint8_t>> { 
 
         if (ciphertext.empty()) {
-            // TODO: Log Info
+            Logger::Info("ChaCha20-Poly1305: Decrypt called with empty ciphertext");
             return std::nullopt;
         }
 
         EvpCipherCtxPtr ctx{EVP_CIPHER_CTX_new()};
         if (!ctx) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Failed to create cipher context");
             return std::nullopt;
         }
 
         if (EVP_DecryptInit_ex(ctx.get(), EVP_chacha20_poly1305(), nullptr, nullptr, nullptr) <= 0) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: EVP_DecryptInit_ex failed for cipher setup");
             return std::nullopt;
         }
 
         // Set nonce length
         if (EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_AEAD_SET_IVLEN, static_cast<int>(kNonceBytes), nullptr) <= 0) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Failed to set nonce length");
             return std::nullopt;
         }
 
         // Set key and nonce
         if (EVP_DecryptInit_ex(ctx.get(), nullptr, nullptr, key.data(), nonce.data()) <= 0) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Failed to set key and nonce");
             return std::nullopt;
         }
 
@@ -109,7 +112,7 @@ namespace core::cryptography::chacha20_poly1305 {
         if (!aad.empty()) {
             int aad_len = 0;
             if (EVP_DecryptUpdate(ctx.get(), nullptr, &aad_len, aad.data(), static_cast<int>(aad.size())) <= 0) {
-                // TODO: Log Error
+                Logger::Error("ChaCha20-Poly1305: Failed to process AAD");
                 return std::nullopt;
             }
         }
@@ -119,14 +122,14 @@ namespace core::cryptography::chacha20_poly1305 {
         int out_len = 0;
 
         if (EVP_DecryptUpdate(ctx.get(), plaintext.data(), &out_len, ciphertext.data(), static_cast<int>(ciphertext.size())) <= 0) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Decryption failed during update");
             return std::nullopt;
         }
 
         // Set the expected tag BEFORE finalize
         // EVP_CTRL_AEAD_SET_TAG expects a non-const pointer, hence the const_cast
         if (EVP_CIPHER_CTX_ctrl(ctx.get(), EVP_CTRL_AEAD_SET_TAG, static_cast<int>(kTagBytes), const_cast<std::uint8_t*>(tag.data())) <= 0) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Failed to set expected authentication tag");
             return std::nullopt;
         }
 
@@ -134,7 +137,7 @@ namespace core::cryptography::chacha20_poly1305 {
         int final_len = 0;
         if (EVP_DecryptFinal_ex(ctx.get(), plaintext.data() + out_len, &final_len) <= 0) {
             // Authentication failed, ciphertext was tampered with
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Authentication tag verification failed, ciphertext may be tampered");
             return std::nullopt;
         }
 
@@ -147,7 +150,7 @@ namespace core::cryptography::chacha20_poly1305 {
     std::optional<Key> GenerateKey() { 
         Key key{};
         if (RAND_bytes(key.data(), static_cast<int>(kKeyBytes)) != 1) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Failed to generate random key");
             return std::nullopt;
         } 
         return key;
@@ -156,7 +159,7 @@ namespace core::cryptography::chacha20_poly1305 {
     std::optional<Nonce> GenerateNonce() { 
         Nonce nonce{};
         if (RAND_bytes(nonce.data(), static_cast<int>(kNonceBytes)) != 1) {
-            // TODO: Log Error
+            Logger::Error("ChaCha20-Poly1305: Failed to generate random nonce");
             return std::nullopt;
         }
         return nonce;
