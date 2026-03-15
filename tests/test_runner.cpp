@@ -169,8 +169,22 @@ int main(int argc, char* argv[]) {
     Run(SipHashTest_NormalKey_LargeInput,  "SipHash: normal key, large input");
 
     // =============================================================================
+    // HKDF Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(HkdfTest_Extract_OutputSize,                        "HKDF: extract output size");
+    Run(HkdfTest_Extract_NotEmpty,                          "HKDF: extract not empty");
+    Run(HkdfTest_Expand_OutputSize,                         "HKDF: expand output size");
+    Run(HkdfTest_DeriveKey_OutputSize,                      "HKDF: derive key output size");
+    Run(HkdfTest_DeriveKey_Deterministic,                   "HKDF: derive key deterministic");
+    Run(HkdfTest_DeriveKey_DifferentSalt,                   "HKDF: diff salt -> diff output");
+    Run(HkdfTest_DeriveKey_DifferentIKM,                    "HKDF: diff ikm -> diff output");
+    Run(HkdfTest_Roundtrip_ExtractExpand_MatchesDeriveKey,  "HKDF: extract+expand == derivekey");
+    
+    // =============================================================================
     // X25519 Tests
     // =============================================================================
+  
     std::cout << "\n";
     Run(X25519Test_GenerateKeyPair_Succeeds,                  "X25519: keygen succeeds");
     Run(X25519Test_GenerateKeyPair_PublicDiffersFromPrivate,  "X25519: pub != priv");
