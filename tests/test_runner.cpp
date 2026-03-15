@@ -1,9 +1,13 @@
 #include "tests.h"
 #include "timer.hpp"
+#include "logger.hpp"
+#include "x25519.hpp"
 
 #include <string_view>
 #include <iostream>
 #include <iomanip>
+
+using core::utils::Logger;
 
 static int total_tests = 0;
 static int passed_tests = 0;
@@ -32,7 +36,10 @@ void Run(bool (*test)(), std::string_view name) {
         std::cout << RED   << "[FAIL]" << RESET;
     }
 
-    std::cout << "  " << timer.ElapsedStr() << "\n";
+    // I decided we should flush after each test. That way if
+    // a test crashes the program, we can pinpoint which test did so.
+    // Plus we see results in real time
+    std::cout << "  " << timer.ElapsedStr() << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -40,9 +47,30 @@ int main(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
 
+    // Initialize the global logger as everything will need this
+    Logger::getInstance().init(std::cerr);
+
     std::cout << "========================================\n";
     std::cout << "Running Test Suite\n";
-    std::cout << "========================================\n\n";
+    std::cout << "========================================\n";
+
+    // =============================================================================
+    // Logger Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(LoggerTest_SingleMessage,      "Logger: single message");
+    Run(LoggerTest_AllLevels,          "Logger: all levels");
+    Run(LoggerTest_TimestampPresent,   "Logger: timestamp present");
+    Run(LoggerTest_MultipleMessages,   "Logger: multiple messages");
+    Run(LoggerTest_MT_AllEventsWritten,"Logger: MT all events written");
+    Run(LoggerTest_MT_NoGarbledLines,  "Logger: MT no garbled lines");
+    Run(LoggerTest_SetLevel_FiltersBelowThreshold,  "Logger: setLevel filters below");
+    Run(LoggerTest_SetLevel_AllowsAtThreshold,       "Logger: setLevel allows at/above");
+    Run(LoggerTest_SetLevel_EmergencyOnly,           "Logger: emergency-only mode");
+    Run(LoggerTest_SetLevel_DebugLogsEverything,     "Logger: debug logs everything");
+    Run(LoggerTest_SetLevel_ChangesMidStream,        "Logger: level change mid-stream");
+    Run(LoggerTest_LogEvent_SeverityOrdering,        "LogEvent: severity ordering");
+    Run(LoggerTest_LogEvent_TimestampBreaksTie,      "LogEvent: timestamp tiebreak");
 
     // =============================================================================
     // Random Tests
@@ -68,6 +96,22 @@ int main(int argc, char* argv[]) {
     Run(BitUtilsTest_BytesToBits_AllOnes, "BytesToBits: all ones (0xFF)");
     Run(BitUtilsTest_Roundtrip_BytesToBits_To_BitsToBytes, "Roundtrip: BytesToBits --> BitsToBytes");
     Run(BitUtilsTest_Roundtrip_BitsToBytes_To_BytesToBits, "Roundtrip: BitsToBytes --> BytesToBits");
+
+    // =============================================================================
+    // Hex Helpers Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(HexTest_Uint8,             "Hex: uint8_t");
+    Run(HexTest_Uint16,            "Hex: uint16_t");
+    Run(HexTest_Uint32,            "Hex: uint32_t");
+    Run(HexTest_Uint64,            "Hex: uint64_t");
+    Run(HexTest_Span_Empty,        "Hex: span empty");
+    Run(HexTest_Span_SingleByte,   "Hex: span single byte");
+    Run(HexTest_Span_MultiByte,    "Hex: span multi byte");
+    Run(HexTest_Vector_Empty,      "Hex: vector empty");
+    Run(HexTest_Vector_SingleByte, "Hex: vector single byte");
+    Run(HexTest_Vector_MultiByte,  "Hex: vector multi byte");
+    Run(HexTest_Array,             "Hex: std::array");
 
     // =============================================================================
     // ML-KEM Tests
@@ -114,8 +158,6 @@ int main(int argc, char* argv[]) {
     Run(ChaCha20Test_Auth_MissingAAD,         "ChaCha20: missing AAD -> reject");
     Run(ChaCha20Test_Auth_SpuriousAAD,        "ChaCha20: spurious AAD -> reject");
 
-<<<<<<< Updated upstream
-=======
     // =============================================================================
     // SipHash Tests
     // =============================================================================
@@ -138,10 +180,11 @@ int main(int argc, char* argv[]) {
     Run(HkdfTest_DeriveKey_DifferentSalt,                   "HKDF: diff salt -> diff output");
     Run(HkdfTest_DeriveKey_DifferentIKM,                    "HKDF: diff ikm -> diff output");
     Run(HkdfTest_Roundtrip_ExtractExpand_MatchesDeriveKey,  "HKDF: extract+expand == derivekey");
-
+    
     // =============================================================================
     // X25519 Tests
     // =============================================================================
+  
     std::cout << "\n";
     Run(X25519Test_GenerateKeyPair_Succeeds,                  "X25519: keygen succeeds");
     Run(X25519Test_GenerateKeyPair_PublicDiffersFromPrivate,  "X25519: pub != priv");
@@ -176,7 +219,6 @@ int main(int argc, char* argv[]) {
     Run(UDPSocketTest_Loopback_SenderInfo, "UDPSocket: loopback sender info");
     Run(UDPSocketTest_Loopback_1KB,        "UDPSocket: loopback 1 KB");
     Run(UDPSocketTest_ExternalDNSQuery,    "UDPSocket: 8.8.8.8:53 DNS query");
->>>>>>> Stashed changes
 
     // =============================================================================
     // Future Tests
