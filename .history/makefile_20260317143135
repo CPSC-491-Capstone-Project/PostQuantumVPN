@@ -8,7 +8,8 @@ WARN := -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion #-Werror
 STD := -std=c++23
 OPT := -O2
 DEP := -MMD -MP
-INCLUDES := -Iclient -Iserver -Itests -Icore -Icore/os/$(PLATFORM) -Icore/cryptography -Icore/utils -Icore/network
+INCLUDES := -Iclient -Iserver -Itests -Icore -Icore/os/$(PLATFORM) -Icore/cryptography -Icore/utils
+LDFLAGS :=	-L/usr/local/lib -lblake3
 
 
 # ----- File Extensions -----
@@ -33,8 +34,8 @@ endif
 ifeq ($(PLATFORM),macos)
 	OPENSSL_PREFIX := $(shell brew --prefix openssl 2>/dev/null)
 	ifdef OPENSSL_PREFIX
-		LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include -I/opt/homebrew/include 
-		LDFLAGS := -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto -L/opt/homebrew/lib -lblake3
+		LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include
+		LDFLAGS := -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto
 	else
 		OPENSSL_FOUND := no
 	endif
@@ -69,7 +70,7 @@ OBJDIR := obj
 BINDIR := bin
 
 # ----- Source & Dependencies -----
-CORE_SRCS   := $(wildcard core/*.$(CXX_EXT)) $(wildcard core/os/$(PLATFORM)/*.$(CXX_EXT)) $(wildcard core/cryptography/*.$(CXX_EXT)) $(wildcard core/utils/*.$(CXX_EXT)) $(wildcard core/network/*.$(CXX_EXT))
+CORE_SRCS   := $(wildcard core/*.$(CXX_EXT)) $(wildcard core/os/$(PLATFORM)/*.$(CXX_EXT)) $(wildcard core/cryptography/*.$(CXX_EXT)) $(wildcard core/utils/*.$(CXX_EXT))
 CLIENT_SRCS := $(wildcard client/*.$(CXX_EXT))
 SERVER_SRCS := $(wildcard server/*.$(CXX_EXT))
 TEST_SRCS   := $(wildcard tests/*.$(CXX_EXT))

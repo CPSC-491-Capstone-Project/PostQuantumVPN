@@ -6,7 +6,6 @@
 #include <span>
 #include <cstring>
 #include <string>
-#include <bit>
 
 namespace core::utils {
 

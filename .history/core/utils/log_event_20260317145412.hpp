@@ -2,14 +2,11 @@
 #define _PQVPN_CORE_UTILS_LOG_EVENT_HPP_
 
 #include "log_level.hpp"
-
 #include <chrono>
 #include <string>
 #include <ctime>      
 #include <iomanip>    
 #include <sstream>
-#include <compare>
-#include <iomanip>
 
 namespace core::utils {
 
@@ -28,17 +25,12 @@ namespace core::utils {
         {
         }
 
-        constexpr std::strong_ordering operator<=>(const LogEvent& other) const noexcept {
-            if (auto cmp = level_ <=> other.level_; cmp != std::strong_ordering::equal) {
-                return cmp;
-            }
-            return timestamp_ <=> other.timestamp_;
+        // Higher level takes priority, ties broken by earliest timestamp
+        bool operator<(const LogEvent& other) const {
+            if (level_ != other.level_)
+                return level_ < other.level_;
+            return timestamp_ > other.timestamp_;
         }
-
-        constexpr bool operator==(const LogEvent& other) const noexcept {
-            return level_ == other.level_ && timestamp_ == other.timestamp_;
-        }
-
 
         std::string toString() const {
             auto time_t_val = std::chrono::system_clock::to_time_t(timestamp_);
