@@ -161,29 +161,6 @@ int main(int argc, char* argv[]) {
     // Future Tests
     // =============================================================================
 
-    // =============================================================================
-    // BLAKE3 Tests
-    // =============================================================================
-    std::cout << "\n";
-    Run(Blake3Test_Hash256_Succeeds,           "BLAKE3: hash succeeds");
-    Run(Blake3Test_Hash256_OutputSize,         "BLAKE3: output = 32 bytes");
-    Run(Blake3Test_Hash256_EmptyInput,         "BLAKE3: empty input -> nullopt");
-    Run(Blake3Test_Hash256_Deterministic,      "BLAKE3: deterministic");
-    Run(Blake3Test_Hash256_DifferentInputs,    "BLAKE3: diff inputs -> diff hash");
-    Run(Blake3Test_Hash256_DiffersFromInput,   "BLAKE3: hash != input");
-    Run(Blake3Test_Hash256_SingleByte,         "BLAKE3: single byte input");
-    Run(Blake3Test_Hash256_1MB,               "BLAKE3: 1 MB input");
-    Run(Blake3Test_Hash256_AvalancheEffect,    "BLAKE3: avalanche effect");
-    Run(Blake3Test_Hash256_KnownAnswer_Abc,    "BLAKE3: known answer (abc)");
-
-    std::cout << "\n";
-    Run(Blake3Test_HashXof_MatchesHash256AtDefaultLen, "BLAKE3 XOF: matches Hash256 at 32B");
-    Run(Blake3Test_HashXof_OutputSize,         "BLAKE3 XOF: correct output size");
-    Run(Blake3Test_HashXof_ZeroOutputLen,      "BLAKE3 XOF: zero len -> nullopt");
-    Run(Blake3Test_HashXof_EmptyInput,         "BLAKE3 XOF: empty input -> nullopt");
-    Run(Blake3Test_HashXof_Deterministic,      "BLAKE3 XOF: deterministic");
-    Run(Blake3Test_HashXof_PrefixConsistency,  "BLAKE3 XOF: prefix consistency");
-
     //std::cout << std::endl;
       
     // =============================================================================

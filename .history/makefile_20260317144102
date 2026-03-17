@@ -5,7 +5,7 @@ TEST_TARGET := test_runner
 CXX := g++
 #CXX := clang++
 WARN := -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion #-Werror
-STD := -std=c++23
+STD := -std=c++20
 OPT := -O2
 DEP := -MMD -MP
 INCLUDES := -Iclient -Iserver -Itests -Icore -Icore/os/$(PLATFORM) -Icore/cryptography -Icore/utils
@@ -33,8 +33,8 @@ endif
 ifeq ($(PLATFORM),macos)
 	OPENSSL_PREFIX := $(shell brew --prefix openssl 2>/dev/null)
 	ifdef OPENSSL_PREFIX
-		LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include -I/opt/homebrew/include 
-		LDFLAGS := -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto -L/opt/homebrew/lib -lblake3
+		LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include
+		LDFLAGS := -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto
 	else
 		OPENSSL_FOUND := no
 	endif

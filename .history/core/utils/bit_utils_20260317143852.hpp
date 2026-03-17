@@ -1,7 +1,6 @@
 #ifndef _PQVPN_CORE_UTILS_BIT_UTILS_HPP_
 #define _PQVPN_CORE_UTILS_BIT_UTILS_HPP_
 
-#include <bit>
 #include <cstdint>
 #include <span>
 #include <cstring>

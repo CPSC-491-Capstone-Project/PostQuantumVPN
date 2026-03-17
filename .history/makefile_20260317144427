@@ -33,8 +33,8 @@ endif
 ifeq ($(PLATFORM),macos)
 	OPENSSL_PREFIX := $(shell brew --prefix openssl 2>/dev/null)
 	ifdef OPENSSL_PREFIX
-		LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include -I/opt/homebrew/include 
-		LDFLAGS := -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto -L/opt/homebrew/lib -lblake3
+		LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include
+		LDFLAGS := -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto
 	else
 		OPENSSL_FOUND := no
 	endif

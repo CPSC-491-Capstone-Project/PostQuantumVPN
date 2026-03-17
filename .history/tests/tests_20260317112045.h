@@ -112,25 +112,7 @@ bool SipHashTest_NormalKey_LargeInput();
 // =============================================================================
 // Future Test Categories
 // =============================================================================
-// =============================================================================
-// BLAKE3 Tests
-// =============================================================================
-    bool Blake3Test_Hash256_Succeeds();
-    bool Blake3Test_Hash256_OutputSize();
-    bool Blake3Test_Hash256_EmptyInput();
-    bool Blake3Test_Hash256_Deterministic();
-    bool Blake3Test_Hash256_DifferentInputs();
-    bool Blake3Test_Hash256_DiffersFromInput();
-    bool Blake3Test_Hash256_SingleByte();
-    bool Blake3Test_Hash256_1MB();
-    bool Blake3Test_Hash256_AvalancheEffect();
-    bool Blake3Test_Hash256_KnownAnswer_Abc();
-    bool Blake3Test_HashXof_MatchesHash256AtDefaultLen();
-    bool Blake3Test_HashXof_OutputSize();
-    bool Blake3Test_HashXof_ZeroOutputLen();
-    bool Blake3Test_HashXof_EmptyInput();
-    bool Blake3Test_HashXof_Deterministic();
-    bool Blake3Test_HashXof_PrefixConsistency();
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
