@@ -3,3 +3,14 @@ bin/
 tests/obj/
 tests/bin/
 *.log
+
+# CMake & Clion
+CMakeCache.txt
+cmake_install.cmake
+CMakeFiles/
+.cmake/
+.idea/
+build.ninja
+.ninja_deps
+.ninja_log
+
