@@ -40,11 +40,18 @@ ifeq ($(PLATFORM),macos)
 	endif
 else ifeq ($(PLATFORM),linux)
 	OPENSSL_CHECK := $(shell pkg-config --exists openssl 2>/dev/null && echo yes || echo no)
+	BLAKE3_CHECK := $(shell pkg-config --exists libblake3 2>/dev/null && echo yes || echo no)
 	ifeq ($(OPENSSL_CHECK),yes)
 		LIB_CFLAGS := $(shell pkg-config --cflags openssl)
 		LDFLAGS := $(shell pkg-config --libs openssl)
 	else
 		OPENSSL_FOUND := no
+	endif
+	ifeq ($(BLAKE3_CHECK),yes)
+		LIB_CFLAGS += $(shell pkg-config --cflags libblake3)
+		LDFLAGS += $(shell pkg-config --libs libblake3)
+	else
+		BLAKE3_FOUND := no
 	endif
 else ifeq ($(PLATFORM),windows)
 	OPENSSL_CHECK := $(shell where openssl >nul 2>&1 && echo yes || echo no)
@@ -62,6 +69,21 @@ $(info  ERROR: OpenSSL development libraries not found.)
 $(info  Please install OpenSSL and ensure headers are in your include path.)
 $(info )
 $(error OpenSSL is required to build this project)
+endif
+
+ifeq ($(BLAKE3_FOUND),no)
+$(info )
+$(info  ERROR: BLAKE3 library not found.)
+$(info  Install BLAKE3 from source:)
+$(info    sudo apt install cmake build-essential)
+$(info    git clone https://github.com/BLAKE3-team/BLAKE3.git)
+$(info    cd BLAKE3)
+$(info    cmake -S c -B c/build -DCMAKE_INSTALL_PREFIX=/usr/local)
+$(info    cmake --build c/build)
+$(info    sudo cmake --install c/build)
+$(info    sudo ldconfig)
+$(info )
+$(error BLAKE3 is required to build this project)
 endif
 
 # ----- Directories -----

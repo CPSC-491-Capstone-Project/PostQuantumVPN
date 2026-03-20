@@ -117,6 +117,17 @@ bool UDPSocketTest_ExternalDNSQuery() {
     BytesTransferred sent = sock.SendTo(dns_server, dns_query);
     if (sent != static_cast<BytesTransferred>(dns_query.size())) return false;
 
+    // Wait up to 10 seconds for a response
+    fd_set read_fds;
+    FD_ZERO(&read_fds);
+    FD_SET(sock.GetHandle(), &read_fds);
+    timeval timeout{};
+    timeout.tv_sec = 10;
+    timeout.tv_usec = 0;
+
+    int ready = select(sock.GetHandle() + 1, &read_fds, nullptr, nullptr, &timeout);
+    if (ready <= 0) return false;
+
     std::vector<std::uint8_t> buf(512);
     auto result = sock.ReceiveFrom(buf);
     if (!result) return false;
