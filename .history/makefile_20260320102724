@@ -67,13 +67,17 @@ endif
 
 # ----- Bundled BLAKE3 -----
 BLAKE3_DIR  := libs/blake3
-BLAKE3_SRCS := $(BLAKE3_DIR)/blake3.c $(BLAKE3_DIR)/blake3_dispatch.c $(BLAKE3_DIR)/blake3_portable.c
+BLAKE3_SRCS := $(BLAKE3_DIR)/blake3.c \
+               $(BLAKE3_DIR)/blake3_dispatch.c \
+               $(BLAKE3_DIR)/blake3_portable.c
+
 ARCH := $(shell uname -m)
 ifeq ($(ARCH),arm64)
 	BLAKE3_SRCS += $(BLAKE3_DIR)/blake3_neon.c
 else ifeq ($(ARCH),aarch64)
 	BLAKE3_SRCS += $(BLAKE3_DIR)/blake3_neon.c
 endif
+
 BLAKE3_OBJS := $(patsubst %.c,$(OBJDIR)/%.o,$(BLAKE3_SRCS))
 BLAKE3_DEPS := $(BLAKE3_OBJS:.o=.d)
 
@@ -98,10 +102,10 @@ SERVER_DEPS := $(SERVER_OBJS:.o=.d)
 TEST_DEPS   := $(TEST_OBJS:.o=.d)
 
 # ----- Flags -----
-CXXFLAGS := $(STD) $(WARN) $(OPT) $(DEP) $(INCLUDES) $(LIB_CFLAGS) 
+CXXFLAGS := $(STD) $(WARN) $(OPT) $(DEP) $(INCLUDES) $(LIB_CFLAGS)
 CFLAGS   := -O2 -MMD -MP $(INCLUDES)
 
-# ----- Object Directory -----
+# ----- Compile C++ objects -----
 $(OBJDIR)/%.o: %.$(CXX_EXT)
 	@mkdir -p $(dir $@)
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -162,7 +166,6 @@ run-test: test
 	@echo "[makefile] Running $(BINDIR)/$(TEST_TARGET)"
 	@./$(BINDIR)/$(TEST_TARGET)
 
-
 help:
 	@echo "Usage: make <target>"
 	@echo ""
@@ -185,6 +188,7 @@ help:
 	@echo "  help           Show this message"
 	@echo ""
 	@echo "Platform: $(PLATFORM)"
+	@echo "Arch:     $(ARCH)"
 
 # ----- Include dependencies if present -----
 -include $(CORE_DEPS) $(CLIENT_DEPS) $(SERVER_DEPS) $(TEST_DEPS) $(BLAKE3_DEPS)
