@@ -3,6 +3,7 @@ bin/
 tests/obj/
 tests/bin/
 *.log
+.history/
 
 # CMake & Clion
 CMakeCache.txt
