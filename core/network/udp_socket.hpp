@@ -5,6 +5,8 @@
 #ifndef _PQVPN_CORE_NETWORK_UDP_SOCKET_HPP_
 #define _PQVPN_CORE_NETWORK_UDP_SOCKET_HPP_
 
+#include "network_constants.hpp"
+
 #include <cstdint>
 #include <string>
 #include <span>
@@ -13,9 +15,6 @@
 
 
 namespace core::network {
-    using Handle = std::int32_t;
-    inline constexpr Handle kInvalidHandle = -1;
-
     using Data = std::span<std::uint8_t>;
     using BytesTransferred = std::ptrdiff_t;
 

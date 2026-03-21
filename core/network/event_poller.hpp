@@ -1,14 +1,13 @@
 #ifndef _PQVPN_CORE_NETWORK_EVENT_POLLER_HPP_
 #define _PQVPN_CORE_NETWORK_EVENT_POLLER_HPP_
 
+#include "network_constants.hpp"
+
 #include <cstdint>
 #include <span>
 #include <vector>
 
 namespace core::network {
-
-    using Handle = std::int32_t;
-    inline constexpr Handle kInvalidHandle = -1;
 
     // Event interest and result flags.
     // These map to EPOLL events on linux
