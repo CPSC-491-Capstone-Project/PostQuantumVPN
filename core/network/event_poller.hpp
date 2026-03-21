@@ -40,10 +40,10 @@ namespace core::network {
         EventPoller(const EventPoller&) = delete;
         EventPoller& operator=(const EventPoller&) = delete;
         EventPoller(EventPoller&& other) noexcept;
-        EventPoller& operator=(const EventPoller&& other) noexcept;
+        EventPoller& operator=(EventPoller&& other) noexcept;
 
         bool Open();
-        bool Close();
+        void Close();
         bool Add(Handle handle, std::uint32_t interest_mask);
         bool Modify(Handle handle, std::uint32_t interest_mask);
         bool Remove(Handle handle);
