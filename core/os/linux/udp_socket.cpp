@@ -18,13 +18,13 @@ namespace core::network {
     }
 
     UDPSocket::UDPSocket(UDPSocket&& other) noexcept
-        : handle_{std::exchange(other.handle_, kInvalidSocket)} 
+        : handle_{std::exchange(other.handle_, kInvalidHandle)} 
     {}
 
     UDPSocket& UDPSocket::operator=(UDPSocket&& other) noexcept {
         if (this != &other) {
             Close();
-            handle_ = std::exchange(other.handle_, kInvalidSocket);
+            handle_ = std::exchange(other.handle_, kInvalidHandle);
         }
         return *this;
     }
@@ -35,10 +35,10 @@ namespace core::network {
             return false;
         }
 
-        handle_ = static_cast<SocketHandle>(::socket(AF_INET, SOCK_DGRAM, 0));
+        handle_ = static_cast<Handle>(::socket(AF_INET, SOCK_DGRAM, 0));
         if (handle_ < 0) {
             Logger::Error("UDPSocket: Failed to create socket");
-            handle_ = kInvalidSocket;
+            handle_ = kInvalidHandle;
             return false;
         }
 
@@ -71,7 +71,7 @@ namespace core::network {
     void UDPSocket::Close() {
         if (IsOpen()) {
             ::close(handle_);
-            handle_ = kInvalidSocket;
+            handle_ = kInvalidHandle;
         }
     }
 

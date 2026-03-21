@@ -5,6 +5,8 @@
 #ifndef _PQVPN_CORE_NETWORK_UDP_SOCKET_HPP_
 #define _PQVPN_CORE_NETWORK_UDP_SOCKET_HPP_
 
+#include "network_constants.hpp"
+
 #include <cstdint>
 #include <string>
 #include <span>
@@ -13,9 +15,6 @@
 
 
 namespace core::network {
-    using SocketHandle = std::int32_t;
-    inline constexpr SocketHandle kInvalidSocket = -1;
-
     using Data = std::span<std::uint8_t>;
     using BytesTransferred = std::ptrdiff_t;
 
@@ -48,12 +47,12 @@ namespace core::network {
         BytesTransferred SendTo(const Endpoint& destination, Data data);
         std::optional<ReceiveResult> ReceiveFrom(Data data);
 
-        [[nodiscard]] SocketHandle GetHandle() const { return handle_; }
-        [[nodiscard]] bool IsOpen() const { return handle_ != kInvalidSocket; }
+        [[nodiscard]] Handle GetHandle() const { return handle_; }
+        [[nodiscard]] bool IsOpen() const { return handle_ != kInvalidHandle; }
         [[nodiscard]] std::optional<Endpoint> GetLocalEndpoint() const;
 
     private:
-        SocketHandle handle_{kInvalidSocket};
+        Handle handle_{kInvalidHandle};
     };
 
 }

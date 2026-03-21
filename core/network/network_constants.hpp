@@ -2,8 +2,12 @@
 #define _PQVPN_CORE_NETWORK_CONSTANTS_HPP_
 
 #include <cstddef>
+#include <cstdint>
 
-namespace core {
+namespace core::network {
+
+    using Handle = std::int32_t;
+    inline constexpr Handle kInvalidHandle = -1;
 
     // KB
     constexpr std::size_t k_4KB = 4 * 1024;
@@ -25,6 +29,6 @@ namespace core {
     constexpr std::size_t k_256MB = 256 * 1024 * 1024;
     constexpr std::size_t k_512MB = 512 * 1024 * 1024;
 
-} // namespace core
+} // namespace core::network
 
 #endif // _PQVPN_CORE_NETWORK_CONSTANTS_HPP_
