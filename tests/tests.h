@@ -172,6 +172,7 @@ bool Blake3Test_HashXof_PrefixConsistency();
 // =============================================================================
 bool EventPollerTest_FullLifecycle();
 bool EventPollerTest_TwoPollersAndMoveSemantics();
+bool EventPollerTest_OperationsOnClosedPoller();
 
 // =============================================================================
 // Future Test Categories

@@ -6,6 +6,8 @@
 #include <string_view>
 #include <iostream>
 #include <iomanip>
+#include <chrono>
+#include <sstream>
 
 using core::utils::Logger;
 
@@ -13,11 +15,16 @@ static int total_tests = 0;
 static int passed_tests = 0;
 static int failed_tests = 0;
 
+static std::string log_filename;
+
 static const char* GREEN = "\033[32m";
 static const char* RED = "\033[31m";
 static const char* CYAN = "\033[36m";
 static const char* RESET = "\033[0m";
 
+// =============================================================================
+// Run Function
+// =============================================================================
 void Run(bool (*test)(), std::string_view name) {
     total_tests++;
     core::utils::Timer timer;
@@ -42,13 +49,34 @@ void Run(bool (*test)(), std::string_view name) {
     std::cout << "  " << timer.ElapsedStr() << std::endl;
 }
 
+// =============================================================================
+// Logger Related Functions
+// =============================================================================
+static std::string MakeLogFilename() {
+    auto now = std::chrono::system_clock::now();
+    auto time_t_val = std::chrono::system_clock::to_time_t(now);
+    std::ostringstream oss;
+    oss << "Test_Log_"
+        << std::put_time(std::localtime(&time_t_val), "%Y%m%d_%H%M%S")
+        << ".log";
+    return oss.str();
+}
+
+static void InitLoggerToFile() {
+    Logger::getInstance().init(log_filename);
+    Logger::getInstance().setLogLevel(core::utils::LogLevel::DEBUG);
+}
+
+// =============================================================================
+// Main Function
+// =============================================================================
 int main(int argc, char* argv[]) {
 
     (void)argc;
     (void)argv;
 
-    // Initialize the global logger as everything will need this
-    Logger::getInstance().init(std::cerr);
+    log_filename = MakeLogFilename();
+    InitLoggerToFile();
 
     std::cout << "========================================\n";
     std::cout << "Running Test Suite\n";
@@ -71,6 +99,10 @@ int main(int argc, char* argv[]) {
     Run(LoggerTest_SetLevel_ChangesMidStream,        "Logger: level change mid-stream");
     Run(LoggerTest_LogEvent_SeverityOrdering,        "LogEvent: severity ordering");
     Run(LoggerTest_LogEvent_TimestampBreaksTie,      "LogEvent: timestamp tiebreak");
+
+    // Reset the logger after running the Logger tests
+    // so that all other tests will output to the correct file
+    InitLoggerToFile();
 
     // =============================================================================
     // Random Tests
@@ -249,6 +281,7 @@ int main(int argc, char* argv[]) {
     std::cout << "\n";
     Run(EventPollerTest_FullLifecycle,              "EventPoller: full lifecycle");
     Run(EventPollerTest_TwoPollersAndMoveSemantics, "EventPoller: two pollers + move");
+    Run(EventPollerTest_OperationsOnClosedPoller,   "EventPoller: ops on closed poller");
 
 
     // =============================================================================

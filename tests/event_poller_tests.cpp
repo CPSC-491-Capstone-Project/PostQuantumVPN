@@ -247,3 +247,53 @@ bool EventPollerTest_TwoPollersAndMoveSemantics() {
 
     return true;
 }
+
+// =============================================================================
+// Test 3: Operations on a closed poller should all fail gracefully.
+//         This test PASSES when every operation correctly rejects.
+//         Check the log output to verify Logger::Error fires for each.
+// =============================================================================
+bool EventPollerTest_OperationsOnClosedPoller() {
+
+    UDPSocket sock;
+    if (!sock.Open())                   { Logger::Error("event_poller_test: sock Open failed"); return false; }
+    if (!sock.Bind("127.0.0.1", 0))    { Logger::Error("event_poller_test: sock Bind failed"); return false; }
+
+    const Handle sock_handle = sock.GetHandle();
+
+    // Open a poller, then immediately close it
+    EventPoller poller;
+    if (!poller.Open()) { Logger::Error("event_poller_test: poller Open failed"); return false; }
+    poller.Close();
+
+    // Every operation below should fail and produce a Logger::Error line.
+    // If any of them succeed, something is wrong.
+
+    Logger::Info("event_poller_test: === Expecting error logs below and this is intentional ===");
+
+    if (poller.Add(sock_handle, EventMask::Readable)) {
+        Logger::Error("event_poller_test: Add succeeded on closed poller");
+        return false;
+    }
+
+    if (poller.Modify(sock_handle, EventMask::Writable)) {
+        Logger::Error("event_poller_test: Modify succeeded on closed poller");
+        return false;
+    }
+
+    if (poller.Remove(sock_handle)) {
+        Logger::Error("event_poller_test: Remove succeeded on closed poller");
+        return false;
+    }
+
+    std::array<PollEvent, 4> events{};
+    int count = poller.Poll(events, 0);
+    if (count != -1) {
+        Logger::Error("event_poller_test: Poll returned " + std::to_string(count) + " instead of -1");
+        return false;
+    }
+
+    Logger::Info("event_poller_test: === All operations correctly rejected ===");
+
+    return true;
+}
