@@ -22,7 +22,7 @@ namespace core::network {
     // Event returned by Poll().
     // Identifies which fd fired and what conditions triggered
     struct PollEvent {
-        Handle handle{kInvalidEventHandle};
+        Handle handle{kInvalidHandle};
         std::uint32_t mask{0};
 
         [[nodiscard]] bool IsReadable() const { return mask & EventMask::Readable; }

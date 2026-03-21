@@ -155,7 +155,7 @@ namespace core::network {
         );
 
         if (count < 0) {
-            // EINTR is not an error — a signal interrupted the wait.
+            // EINTR is not an error; A signal interrupted the wait.
             // The caller can simply retry on the next loop iteration.
             if (errno == EINTR) {
                 Logger::Debug("EventPoller: epoll_wait interrupted by signal");
@@ -167,7 +167,7 @@ namespace core::network {
         }
 
         // Translate native events into our platform-neutral format
-        for (int i = 0; i < count; ++i) {
+        for (auto i{0uz}; i < static_cast<std::size_t>(count); ++i) {
             out[i].handle = static_cast<Handle>(events[i].data.fd);
             out[i].mask   = FromEpoll(events[i].events);
         }

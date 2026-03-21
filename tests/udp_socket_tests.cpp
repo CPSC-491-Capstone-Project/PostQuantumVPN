@@ -15,7 +15,7 @@ bool UDPSocketTest_OpenClose() {
     UDPSocket sock;
     if (!sock.Open()) return false;
     if (!sock.IsOpen()) return false;
-    if (sock.GetHandle() == kInvalidSocket) return false;
+    if (sock.GetHandle() == kInvalidHandle) return false;
     sock.Close();
     return !sock.IsOpen();
 }
