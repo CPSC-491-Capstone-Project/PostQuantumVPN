@@ -221,10 +221,6 @@ int main(int argc, char* argv[]) {
     Run(UDPSocketTest_ExternalDNSQuery,    "UDPSocket: 8.8.8.8:53 DNS query");
 
     // =============================================================================
-    // Future Tests
-    // =============================================================================
-
-    // =============================================================================
     // BLAKE3 Tests
     // =============================================================================
     std::cout << "\n";
@@ -247,7 +243,18 @@ int main(int argc, char* argv[]) {
     Run(Blake3Test_HashXof_Deterministic,      "BLAKE3 XOF: deterministic");
     Run(Blake3Test_HashXof_PrefixConsistency,  "BLAKE3 XOF: prefix consistency");
 
-    //std::cout << std::endl;
+    // =============================================================================
+    // Event Poller Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(EventPollerTest_FullLifecycle,              "EventPoller: full lifecycle");
+    Run(EventPollerTest_TwoPollersAndMoveSemantics, "EventPoller: two pollers + move");
+
+
+    // =============================================================================
+    // Future Tests
+    // =============================================================================
+
       
     // =============================================================================
     // Test Summary
