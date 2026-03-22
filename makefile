@@ -11,6 +11,24 @@ OPT := -O2
 DEP := -MMD -MP
 INCLUDES := -Iclient -Iserver -Itests -Icore -Icore/os/$(PLATFORM) -Icore/cryptography -Icore/utils -Icore/network
 
+# ----- Verbosity -----
+# V=low (errors only), V=medium (default, file-level), V=high (everything)
+V := medium
+
+ifeq ($(V),low)
+  Q := @
+  CMAKE_QUIET := > /dev/null 2>&1
+  SHOW_PROGRESS :=
+else ifeq ($(V),high)
+  Q :=
+  CMAKE_QUIET :=
+  SHOW_PROGRESS := 1
+else
+  # medium (default)
+  Q := @
+  CMAKE_QUIET := > /dev/null 2>&1
+  SHOW_PROGRESS := 1
+endif
 
 # ----- File Extensions -----
 CXX_EXT := cpp
@@ -103,18 +121,19 @@ CMAKE_LIB_ARCHIVES = $(foreach name,$(CMAKE_LIB_NAMES),$(wildcard $(LIBS_OBJDIR)
  
 # Build rule for each cmake lib: configure + build, then stamp
 $(LIBS_OBJDIR)/%/.built: $(LIBSDIR)/%/CMakeLists.txt
-	@echo "[CMAKE] Configuring $*"
+	$(if $(SHOW_PROGRESS),@echo "[CMAKE] Configuring $*")
 	@mkdir -p $(LIBS_OBJDIR)/$*
-	@cmake -S $(LIBSDIR)/$* -B $(LIBS_OBJDIR)/$* \
+	$(Q)cmake -S $(LIBSDIR)/$* -B $(LIBS_OBJDIR)/$* \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DBUILD_SHARED_LIBS=OFF \
 		-DCMAKE_C_COMPILER=$(CC) \
 		-DCMAKE_CXX_COMPILER=$(CXX) \
 		-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$(CURDIR)/$(LIBS_OBJDIR)/$* \
-	@echo "[CMAKE] Building $*"
-	@cmake --build $(LIBS_OBJDIR)/$* --config Release
+		$(CMAKE_QUIET)
+	$(if $(SHOW_PROGRESS),@echo "[CMAKE] Building $*")
+	$(Q)cmake --build $(LIBS_OBJDIR)/$* --config Release $(CMAKE_QUIET)
 	@touch $@
-	@echo "[CMAKE] $* built -> $(LIBS_OBJDIR)/$*/"
+	$(if $(SHOW_PROGRESS),@echo "[CMAKE] $* built -> $(LIBS_OBJDIR)/$*/")
  
 # Phony target so "make libs" can depend on all cmake stamps
 .PHONY: cmake-libs
@@ -161,20 +180,20 @@ CFLAGS   := -O2 -MMD -MP $(INCLUDES) $(LIB_INCLUDES)
 # ----- Generic bundled libs: C -----
 $(LIBS_OBJDIR)/%.o: $(LIBSDIR)/%.c
 	@mkdir -p $(dir $@)
-	@echo "[CC]  $<"
-	@$(CC) $(CFLAGS) -c $< -o $@
+	$(if $(SHOW_PROGRESS),@echo "[CC]  $<")
+	$(Q)$(CC) $(CFLAGS) -c $< -o $@
  
 # ----- Generic bundled libs: C++ -----
 $(LIBS_OBJDIR)/%.o: $(LIBSDIR)/%.$(CXX_EXT)
 	@mkdir -p $(dir $@)
-	@echo "[CXX] $< (lib)"
-	@$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(if $(SHOW_PROGRESS),@echo "[CXX] $< (lib)")
+	$(Q)$(CXX) $(CXXFLAGS) -c $< -o $@
  
 # ----- Project C++ objects -----
 $(OBJDIR)/%.o: %.$(CXX_EXT)
 	@mkdir -p $(dir $@)
-	@echo "[CXX] $<"
-	@$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(if $(SHOW_PROGRESS),@echo "[CXX] $<")
+	$(Q)$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # ==============================================================================
 # Build Targets
@@ -182,10 +201,10 @@ $(OBJDIR)/%.o: %.$(CXX_EXT)
 .PHONY: libs core client server test
  
 libs: cmake-libs $(LIB_OTHER_ALL_OBJS)
-	@echo "[makefile] Bundled libraries built"
+	$(if $(SHOW_PROGRESS),@echo "[makefile] Bundled libraries built")
  
 core: libs $(CORE_OBJS)
-	@echo "[makefile] Core built"
+	$(if $(SHOW_PROGRESS),@echo "[makefile] Core built")
  
 client: $(BINDIR)/$(CLIENT_TARGET)
  
@@ -196,21 +215,21 @@ test: $(BINDIR)/$(TEST_TARGET)
 # ----- Executables -----
 $(BINDIR)/$(CLIENT_TARGET): libs $(CLIENT_OBJS) $(CORE_OBJS)
 	@mkdir -p $(BINDIR)
-	@echo "[LINK] $(BINDIR)/$(CLIENT_TARGET)"
-	@$(CXX) $(CLIENT_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
-	@echo "[makefile] Built $(BINDIR)/$(CLIENT_TARGET)"
+	$(if $(SHOW_PROGRESS),@echo "[LINK] $(BINDIR)/$(CLIENT_TARGET)")
+	$(Q)$(CXX) $(CLIENT_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
+	$(if $(SHOW_PROGRESS),@echo "[makefile] Built $(BINDIR)/$(CLIENT_TARGET)")
  
 $(BINDIR)/$(SERVER_TARGET): libs $(SERVER_OBJS) $(CORE_OBJS)
 	@mkdir -p $(BINDIR)
-	@echo "[LINK] $(BINDIR)/$(SERVER_TARGET)"
-	@$(CXX) $(SERVER_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
-	@echo "[makefile] Built $(BINDIR)/$(SERVER_TARGET)"
+	$(if $(SHOW_PROGRESS),@echo "[LINK] $(BINDIR)/$(SERVER_TARGET)")
+	$(Q)$(CXX) $(SERVER_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
+	$(if $(SHOW_PROGRESS),@echo "[makefile] Built $(BINDIR)/$(SERVER_TARGET)")
  
 $(BINDIR)/$(TEST_TARGET): libs $(TEST_OBJS) $(CORE_OBJS)
 	@mkdir -p $(BINDIR)
-	@echo "[LINK] $(BINDIR)/$(TEST_TARGET)"
-	@$(CXX) $(TEST_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
-	@echo "[makefile] Built $(BINDIR)/$(TEST_TARGET)"
+	$(if $(SHOW_PROGRESS),@echo "[LINK] $(BINDIR)/$(TEST_TARGET)")
+	$(Q)$(CXX) $(TEST_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
+	$(if $(SHOW_PROGRESS),@echo "[makefile] Built $(BINDIR)/$(TEST_TARGET)")
  
 # ----- Run Targets -----
 .PHONY: run-client run-server run-test
@@ -276,4 +295,6 @@ help:
  
 # ----- Include dependencies if present -----
 -include $(CORE_DEPS) $(CLIENT_DEPS) $(SERVER_DEPS) $(TEST_DEPS) $(LIB_OTHER_ALL_DEPS)
- 
+
+
+
