@@ -1,5 +1,11 @@
 #include "tunnel.hpp"
 
+#include <cstring>
+#include <fcntl.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <linux/if_tun.h>
+
 int open_tun(const char* ifname) 
 {
     int fd = open("/dev/net/tun", O_RDWR);

@@ -1,11 +1,4 @@
-#include <iostream>
-#include <cstring>
-#include <fcntl.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <net/if.h>
+#include "tun_read.hpp"
 
 
 // Raw socket for injecting processed outbound packets back into the kernel.
@@ -35,10 +28,11 @@ static int on_inbound(struct nfq_packet packet)
 {
     // Modify data here.
 
+    std::cout << "INBOUND " << packet.data_len << " bytes\n";
 
     
     // Deliver data to desination socket.
-    nfq_deliver(packet)
+    return nfq_deliver(&packet);
 }
 
 int main() {
@@ -55,8 +49,8 @@ int main() {
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(tun_fd,  &fds);
-        FD_SET(nfq_state->socket, &fds);
-        select(std::max(tun_fd, nfq_state->socket) + 1, &fds, nullptr, nullptr, nullptr);
+        FD_SET(nfq_state.socket, &fds);
+        select(std::max(tun_fd, nfq_state.socket) + 1, &fds, nullptr, nullptr, nullptr);
 
         if (FD_ISSET(tun_fd, &fds)) {
             int len = read(tun_fd, buf, sizeof(buf));
