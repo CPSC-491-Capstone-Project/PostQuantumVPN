@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <chrono>
 #include <sstream>
+#include <functional>
 
 using core::utils::Logger;
 
@@ -46,6 +47,29 @@ void Run(bool (*test)(), std::string_view name) {
     // I decided we should flush after each test. That way if
     // a test crashes the program, we can pinpoint which test did so.
     // Plus we see results in real time
+    std::cout << "  " << timer.ElapsedStr() << std::endl;
+}
+
+// Overload that allows the test to start the timer. 
+// This allows the test function to do things like setup a thread pool
+// or create some resource without the resource creation being counted in the test time
+void Run(bool (*test)(std::function<void()>), std::string_view name) {
+    total_tests++;
+    core::utils::Timer timer;
+
+    std::cout << CYAN << "[TEST] " << RESET << std::left << std::setw(40) << name;
+
+    bool result = test([&timer] { timer.Start(); });
+    timer.Stop();
+
+    if (result) {
+        passed_tests++;
+        std::cout << GREEN << "[PASS]" << RESET;
+    } else {
+        failed_tests++;
+        std::cout << RED   << "[FAIL]" << RESET;
+    }
+
     std::cout << "  " << timer.ElapsedStr() << std::endl;
 }
 
@@ -250,7 +274,7 @@ int main(int argc, char* argv[]) {
     Run(UDPSocketTest_SendToReceiveFrom,   "UDPSocket: send and receive");
     Run(UDPSocketTest_Loopback_SenderInfo, "UDPSocket: loopback sender info");
     Run(UDPSocketTest_Loopback_1KB,        "UDPSocket: loopback 1 KB");
-    Run(UDPSocketTest_ExternalDNSQuery,    "UDPSocket: 8.8.8.8:53 DNS query");
+    //Run(UDPSocketTest_ExternalDNSQuery,    "UDPSocket: 8.8.8.8:53 DNS query"); // This appears to be blocked on the Fullerton Network
 
     // =============================================================================
     // BLAKE3 Tests
@@ -283,6 +307,10 @@ int main(int argc, char* argv[]) {
     Run(EventPollerTest_TwoPollersAndMoveSemantics, "EventPoller: two pollers + move");
     Run(EventPollerTest_OperationsOnClosedPoller,   "EventPoller: ops on closed poller");
 
+    // =============================================================================
+    // TAI64N Tests
+    // =============================================================================
+    std::cout << "\n";
 
     // =============================================================================
     // Future Tests
