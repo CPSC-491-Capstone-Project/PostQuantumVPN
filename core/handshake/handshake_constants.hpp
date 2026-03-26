@@ -8,6 +8,9 @@
 
 namespace core::handshake {
 
+using ByteSpan = std::span<std::uint8_t>;
+using ConstByteSpan = std::span<const std::uint8_t>;
+
 // ---------------------------------------------------------------------------
 // Protocol construction & identifier strings
 // ---------------------------------------------------------------------------
