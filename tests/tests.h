@@ -178,7 +178,9 @@ bool EventPollerTest_OperationsOnClosedPoller();
 // =============================================================================
 // TAIN64 Tests
 // =============================================================================
-
+bool Tai64nTest_SingleThread_UniqueTimestamps();
+bool Tai64nTest_MT_AllUnique(std::function<void()> startTimer);
+bool Tai64nTest_MT_Throughput(std::function<void()> startTimer);
 
 // =============================================================================
 // Future Test Categories

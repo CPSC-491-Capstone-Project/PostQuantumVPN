@@ -27,6 +27,7 @@ public:
 
     [[nodiscard]] constexpr std::uint64_t Seconds() const;
     [[nodiscard]] constexpr std::uint32_t Nanoseconds() const;
+    [[nodiscard]] constexpr std::array<uint8_t, kSize> Data() const { return data_; }
 
 private:
     std::array<uint8_t, kSize> data_;
@@ -39,11 +40,13 @@ public:
     using seconds = std::chrono::seconds;
     using nano_seconds = std::chrono::nanoseconds;
 
+    Tai64n() = default;
+
     [[nodiscard]] Tai64nStamp Now();
 
 private:
     std::mutex mutex_;
-    Tai64nStamp last_;
+    Tai64nStamp last_{0, 0};
 
 };
 

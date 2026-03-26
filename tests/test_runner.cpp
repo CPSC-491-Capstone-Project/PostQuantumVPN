@@ -311,6 +311,9 @@ int main(int argc, char* argv[]) {
     // TAI64N Tests
     // =============================================================================
     std::cout << "\n";
+    Run(Tai64nTest_SingleThread_UniqueTimestamps,  "TAI64N: single-thread unique");
+    Run(Tai64nTest_MT_AllUnique,                   "TAI64N: MT all unique (1K/thread)");
+    Run(Tai64nTest_MT_Throughput,                  "TAI64N: MT throughput (100K/thread)");
 
     // =============================================================================
     // Future Tests
