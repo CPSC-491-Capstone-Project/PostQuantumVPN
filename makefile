@@ -9,7 +9,7 @@ WARN := -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion #-Werror
 STD := -std=c++23
 OPT := -O2
 DEP := -MMD -MP
-INCLUDES := -Iclient -Iserver -Itests -Icore -Icore/os/$(PLATFORM) -Icore/cryptography -Icore/utils -Icore/network
+INCLUDES := -Iclient -Iserver -Itests -Icore -Icore/os/$(PLATFORM) -Icore/cryptography -Icore/utils -Icore/network -Icore/handshake
 
 # ----- Verbosity -----
 # V=low (errors only), V=medium (default, file-level), V=high (everything)
