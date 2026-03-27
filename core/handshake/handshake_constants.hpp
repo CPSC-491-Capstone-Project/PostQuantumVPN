@@ -10,6 +10,7 @@ namespace core::handshake {
 
 using ByteSpan = std::span<std::uint8_t>;
 using ConstByteSpan = std::span<const std::uint8_t>;
+using Blake3Hash = std::array<std::uint8_t, BLAKE3_OUT_LEN>;
 
 // ---------------------------------------------------------------------------
 // Protocol construction & identifier strings
@@ -18,38 +19,41 @@ using ConstByteSpan = std::span<const std::uint8_t>;
 // It MUST differs from WireGuard's "Noise_IKpsk2_25519_ChaChaPoly_BLAKE2s"
 inline constexpr std::string_view kConstruction = "Noise_IKpsk2_25519+MLKEM768_ChaChaPoly_BLAKE3";
 inline constexpr std::string_view kIdentifier = "PQVPN v1 cmanlove1234@outlook.com";
+
+// ---------------------------------------------------------------------------
+// Precomputed protocol constants (computed once at startup)
+// ---------------------------------------------------------------------------
+const Blake3Hash& InitialChainingKey();
+const Blake3Hash& InitialHash();
+
+// Must be called once during startup
+// Safe to call unlimited times
+void InitHandshakeConstants();
+
+// ---------------------------------------------------------------------------
+// Handshake message types
+// ---------------------------------------------------------------------------
+enum class MessageType : std::uint8_t {
+    Initiation = 1,
+    Response   = 2,
+    Cookie     = 3,
+    Transport  = 4
+};
  
 // ---------------------------------------------------------------------------
 // Timing constants
 // ---------------------------------------------------------------------------
  
-// Initiator begins a new handshake after a session has been active this long.
 inline constexpr auto kRekeyAfterTime = std::chrono::seconds{120};
- 
-// Hard session expiry — both sides drop the session unconditionally.
 inline constexpr auto kRejectAfterTime = std::chrono::seconds{180};
- 
-// Retransmission interval for unanswered handshake initiations.
 inline constexpr auto kRekeyTimeout = std::chrono::seconds{5};
- 
-// Maximum random jitter added to the retransmit timer.
 inline constexpr auto kRekeyTimeoutJitterMax = std::chrono::milliseconds{334};
- 
-// Total wall-clock time before giving up on a handshake attempt.
 inline constexpr auto kRekeyAttemptTime = std::chrono::seconds{90};
- 
-// Maximum retransmission attempts (90 s / 5 s).
 inline constexpr std::uint32_t kMaxTimerHandshakes = 18;
- 
-// Passive keepalive interval.
 inline constexpr auto kKeepaliveTimeout = std::chrono::seconds{10};
- 
-// Server-side cookie secret rotation interval.
 inline constexpr auto kCookieRefreshTime = std::chrono::seconds{120};
- 
-// Minimum interval between consuming handshake initiations from the same peer.
 inline constexpr auto kHandshakeInitiationRate = std::chrono::milliseconds{20};
- 
+
 // ---------------------------------------------------------------------------
 // Message counter limits
 // ---------------------------------------------------------------------------
