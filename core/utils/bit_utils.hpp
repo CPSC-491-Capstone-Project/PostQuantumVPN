@@ -10,7 +10,6 @@
 
 namespace core::utils {
 
-    using Byte = std::uint8_t;
     using ByteSpan = std::span<std::uint8_t>;
     using ConstByteSpan = std::span<const std::uint8_t>;
 
@@ -31,7 +30,7 @@ namespace core::utils {
     void BytesToBits(ConstByteSpan bytes, ByteSpan bits);
 
     // Reads a 64-bit value from a byte buffer in little-endian order.
-    inline uint64_t load64_le(const Byte *src) {
+    inline uint64_t load64_le(const uint8_t *src) {
         uint64_t val;
         std::memcpy(&val, src, 8);
         if constexpr (std::endian::native != std::endian::little) {

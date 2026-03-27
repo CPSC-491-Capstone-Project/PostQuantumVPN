@@ -8,9 +8,9 @@ namespace core::utils {
 
         for (auto i{0uz}; i < num_bytes; ++i) {
             const auto base = i * 8uz;
-            Byte byte{};
+            uint8_t byte{};
             for (auto j{0uz}; j < 8uz; ++j) {
-                byte |= static_cast<Byte>((bits[base + j] & 1u) << j);
+                byte |= static_cast<uint8_t>((bits[base + j] & 1u) << j);
             }
             bytes[i] = byte;
         }
