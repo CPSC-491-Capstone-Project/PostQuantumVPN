@@ -1,5 +1,5 @@
 #include "handshake_constants.hpp"
-#include "logger.cpp"
+#include "logger.hpp"
 
 #include <atomic>
 #include <vector>

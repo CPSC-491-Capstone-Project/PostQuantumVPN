@@ -154,7 +154,7 @@ OBJDIR := obj
 BINDIR := bin
 
 # ----- Source & Dependencies -----
-CORE_SRCS   := $(wildcard core/*.$(CXX_EXT)) $(wildcard core/os/$(PLATFORM)/*.$(CXX_EXT)) $(wildcard core/cryptography/*.$(CXX_EXT)) $(wildcard core/utils/*.$(CXX_EXT)) $(wildcard core/network/*.$(CXX_EXT))
+CORE_SRCS   := $(wildcard core/*.$(CXX_EXT)) $(wildcard core/os/$(PLATFORM)/*.$(CXX_EXT)) $(wildcard core/cryptography/*.$(CXX_EXT)) $(wildcard core/utils/*.$(CXX_EXT)) $(wildcard core/network/*.$(CXX_EXT)) $(wildcard core/handshake/*.$(CXX_EXT))
 CLIENT_SRCS := $(wildcard client/*.$(CXX_EXT))
 SERVER_SRCS := $(wildcard server/*.$(CXX_EXT))
 TEST_SRCS   := $(wildcard tests/*.$(CXX_EXT))

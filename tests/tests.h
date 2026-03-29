@@ -183,6 +183,21 @@ bool Tai64nTest_MT_AllUnique(std::function<void()> startTimer);
 bool Tai64nTest_MT_Throughput(std::function<void()> startTimer);
 
 // =============================================================================
+// Handshake Helpers Tests
+// =============================================================================
+// Mix Hash
+bool MixHashTest_SingleByte();
+bool MixHashTest_EmptyData();
+bool MixHashTest_Deterministic();
+bool MixHashTest_DifferentData();
+bool MixHashTest_DifferentStartingHash();
+bool MixHashTest_OrderMatters();
+bool MixHashTest_ConcatVsSequential();
+bool MixHashTest_KnownAnswer_ZeroHash_Abc();
+bool MixHashTest_KnownAnswer_ProtocolInitialHash();
+bool MixHashTest_LargeData();
+
+// =============================================================================
 // Future Test Categories
 // =============================================================================
 

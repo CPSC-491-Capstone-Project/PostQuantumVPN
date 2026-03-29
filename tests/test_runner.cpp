@@ -2,6 +2,7 @@
 #include "timer.hpp"
 #include "logger.hpp"
 #include "x25519.hpp"
+#include "handshake_constants.hpp"
 
 #include <string_view>
 #include <iostream>
@@ -314,6 +315,24 @@ int main(int argc, char* argv[]) {
     Run(Tai64nTest_SingleThread_UniqueTimestamps,  "TAI64N: single-thread unique");
     Run(Tai64nTest_MT_AllUnique,                   "TAI64N: MT all unique (1K/thread)");
     Run(Tai64nTest_MT_Throughput,                  "TAI64N: MT throughput (100K/thread)");
+
+    // =============================================================================
+    // Handshake Helpers Tests
+    // =============================================================================
+    core::handshake::InitHandshakeConstants();
+ 
+    // Mixhash
+    std::cout << "\n";
+    Run(MixHashTest_SingleByte,                    "MixHash: single byte");
+    Run(MixHashTest_EmptyData,                     "MixHash: empty data");
+    Run(MixHashTest_Deterministic,                 "MixHash: deterministic");
+    Run(MixHashTest_DifferentData,                 "MixHash: diff data -> diff hash");
+    Run(MixHashTest_DifferentStartingHash,         "MixHash: diff start -> diff hash");
+    Run(MixHashTest_OrderMatters,                  "MixHash: order matters");
+    Run(MixHashTest_ConcatVsSequential,            "MixHash: concat != sequential");
+    Run(MixHashTest_KnownAnswer_ZeroHash_Abc,      "MixHash: KAT zeros || abc");
+    Run(MixHashTest_KnownAnswer_ProtocolInitialHash, "MixHash: KAT protocol init hash");
+    Run(MixHashTest_LargeData,                     "MixHash: 4 KB data");
 
     // =============================================================================
     // Future Tests
