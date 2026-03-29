@@ -1,5 +1,6 @@
 #include "handshake_helpers.hpp"
 #include "logger.hpp"
+#include "chacha20_poly1305.hpp"
 
 #include <tuple>
 
@@ -165,6 +166,68 @@ auto MixKey(Blake3Hash& chaining_key, ConstByteSpan input) -> bool {
 
     chaining_key = *result;
     return true;
+}
+
+auto EncryptAndHash(Blake3Hash& hash, const Blake3Hash& key, ConstByteSpan plaintext) -> std::optional<std::vector<std::uint8_t>> {
+    namespace aead = core::cryptography::chacha20_poly1305;
+
+    // Nonce is always zero — handshake AEAD keys are single-use.
+    constexpr aead::Nonce kZeroNonce{};
+
+    // Reinterpret the 32-byte Blake3Hash as a ChaCha20-Poly1305 key.
+    aead::Key aead_key{};
+    std::copy(key.begin(), key.end(), aead_key.begin());
+
+    auto result = aead::Encrypt(plaintext, aead_key, kZeroNonce, ConstByteSpan{hash});
+    if (!result) {
+        Logger::Error("EncryptAndHash: AEAD encryption failed");
+        return std::nullopt;
+    }
+
+    // Pack ciphertext || tag into a single buffer.
+    std::vector<std::uint8_t> ct_with_tag;
+    ct_with_tag.reserve(result->ciphertext.size() + result->tag.size());
+    ct_with_tag.insert(ct_with_tag.end(), result->ciphertext.begin(), result->ciphertext.end());
+    ct_with_tag.insert(ct_with_tag.end(), result->tag.begin(), result->tag.end());
+
+    // H = HASH(H || ct || tag)
+    MixHash(hash, ConstByteSpan{ct_with_tag});
+
+    return ct_with_tag;
+}
+
+auto DecryptAndHash(Blake3Hash& hash, const Blake3Hash& key, ConstByteSpan ciphertext_with_tag) -> std::optional<std::vector<std::uint8_t>> {
+    namespace aead = core::cryptography::chacha20_poly1305;
+
+    if (ciphertext_with_tag.size() < aead::kTagBytes) {
+        Logger::Error("DecryptAndHash: input too short for tag");
+        return std::nullopt;
+    }
+
+    constexpr aead::Nonce kZeroNonce{};
+
+    aead::Key aead_key{};
+    std::copy(key.begin(), key.end(), aead_key.begin());
+
+    // Split ciphertext and tag.
+    const auto ct_len = ciphertext_with_tag.size() - aead::kTagBytes;
+    auto ct_span = ciphertext_with_tag.subspan(0, ct_len);
+
+    aead::Tag tag{};
+    std::copy_n(ciphertext_with_tag.data() + ct_len, aead::kTagBytes, tag.begin());
+
+    // Decrypt - AAD is the CURRENT hash (before MixHash).
+    auto plaintext = aead::Decrypt(ct_span, tag, aead_key, kZeroNonce, ConstByteSpan{hash});
+    if (!plaintext) {
+        // Authentication failed - do NOT modify hash. Abort.
+        
+        return std::nullopt;
+    }
+
+    // Only on success: H = HASH(H || ct || tag)
+    MixHash(hash, ciphertext_with_tag);
+
+    return plaintext;
 }
 
 } // namespace core::handshake

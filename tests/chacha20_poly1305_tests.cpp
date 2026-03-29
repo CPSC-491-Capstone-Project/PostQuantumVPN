@@ -90,17 +90,6 @@ bool ChaCha20Test_Encrypt_CiphertextDiffers() {
     return test_helper("1", std::to_string(different));
 }
 
-// Encrypting empty plaintext should fail (nullopt)
-bool ChaCha20Test_Encrypt_EmptyPlaintext() {
-    auto key = GenerateKey();
-    auto nonce = GenerateNonce();
-    if (!key || !nonce) return test_helper("setup", "nullopt");
-
-    std::vector<std::uint8_t> plaintext{};
-    auto result = Encrypt(plaintext, *key, *nonce);
-
-    return test_helper("0", std::to_string(result.has_value()));
-}
 
 // Same plaintext + key + nonce produces identical ciphertext (deterministic)
 bool ChaCha20Test_Encrypt_Deterministic() {

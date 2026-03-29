@@ -77,7 +77,6 @@ bool ChaCha20Test_GenerateNonce_Unique();
 bool ChaCha20Test_Encrypt_Succeeds();
 bool ChaCha20Test_Encrypt_CiphertextLength();
 bool ChaCha20Test_Encrypt_CiphertextDiffers();
-bool ChaCha20Test_Encrypt_EmptyPlaintext();
 bool ChaCha20Test_Encrypt_Deterministic();
 bool ChaCha20Test_Encrypt_DifferentNonce();
 bool ChaCha20Test_Encrypt_DifferentKey();
@@ -218,6 +217,20 @@ bool KDF3Test_Deterministic();
 bool KDF3Test_T0T1MatchKDF2();
 bool KDF3Test_EmptyInput();
 bool KDF3Test_DifferentKey();
+
+// Encrypt and Decrypt
+bool EncryptAndHashTest_Roundtrip_Basic();
+bool EncryptAndHashTest_HashConvergence();
+bool EncryptAndHashTest_HashChanges();
+bool EncryptAndHashTest_OutputSize();
+bool EncryptAndHashTest_EmptyPlaintext();
+bool DecryptAndHashTest_TamperedCiphertext();
+bool DecryptAndHashTest_TamperedTag();
+bool DecryptAndHashTest_HashUnchangedOnFailure();
+bool DecryptAndHashTest_WrongKey();
+bool DecryptAndHashTest_InputTooShort();
+bool DecryptAndHashTest_MismatchedHash();
+bool EncryptAndHashTest_Deterministic();
 
 // =============================================================================
 // Future Test Categories

@@ -192,7 +192,6 @@ int main(int argc, char* argv[]) {
     Run(ChaCha20Test_Encrypt_Succeeds,        "ChaCha20: encrypt succeeds");
     Run(ChaCha20Test_Encrypt_CiphertextLength,"ChaCha20: ct len == pt len");
     Run(ChaCha20Test_Encrypt_CiphertextDiffers,"ChaCha20: ct differs from pt");
-    Run(ChaCha20Test_Encrypt_EmptyPlaintext,  "ChaCha20: empty pt -> nullopt");
     Run(ChaCha20Test_Encrypt_Deterministic,   "ChaCha20: deterministic");
     Run(ChaCha20Test_Encrypt_DifferentNonce,  "ChaCha20: diff nonce -> diff ct");
     Run(ChaCha20Test_Encrypt_DifferentKey,    "ChaCha20: diff key -> diff ct");
@@ -358,6 +357,24 @@ int main(int argc, char* argv[]) {
     Run(KDF3Test_T0T1MatchKDF2,                    "KDF3: T0,T1 == KDF2 output");
     Run(KDF3Test_EmptyInput,                       "KDF3: empty input succeeds");
     Run(KDF3Test_DifferentKey,                     "KDF3: diff key -> diff output");
+
+
+    // EncryptAndHash / DecryptAndHash
+    std::cout << "\n";
+    Run(EncryptAndHashTest_Roundtrip_Basic,       "EaH: roundtrip basic");
+    Run(EncryptAndHashTest_HashConvergence,       "EaH: hash convergence");
+    Run(EncryptAndHashTest_HashChanges,           "EaH: hash changes after encrypt");
+    Run(EncryptAndHashTest_OutputSize,            "EaH: output = pt + 16 tag");
+    Run(EncryptAndHashTest_EmptyPlaintext,        "EaH: empty pt (encrypted nothing)");
+    Run(EncryptAndHashTest_Deterministic,         "EaH: deterministic");
+
+    std::cout << "\n";
+    Run(DecryptAndHashTest_TamperedCiphertext,    "DaH: tampered ct -> reject");
+    Run(DecryptAndHashTest_TamperedTag,           "DaH: tampered tag -> reject");
+    Run(DecryptAndHashTest_HashUnchangedOnFailure,"DaH: H unchanged on failure");
+    Run(DecryptAndHashTest_WrongKey,              "DaH: wrong key -> reject");
+    Run(DecryptAndHashTest_InputTooShort,         "DaH: input too short -> reject");
+    Run(DecryptAndHashTest_MismatchedHash,        "DaH: mismatched H -> reject");
 
     // =============================================================================
     // Future Tests
