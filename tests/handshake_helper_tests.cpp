@@ -7,6 +7,7 @@
 
 using namespace core::handshake;
 using core::cryptography::blake3::Hash256;
+using core::cryptography::blake3::KeyedHash256;
 
 // ============================================================================
 // Helper: build BLAKE3-256(a || b) manually for expected values
@@ -196,4 +197,263 @@ bool MixHashTest_LargeData() {
     MixHash(h, ConstByteSpan{data.data(), data.size()});
 
     return test_helper("1", std::to_string(h == expected));
+}
+
+// ============================================================================
+// KDF1 tests
+// ============================================================================
+ 
+// KDF1 succeeds with typical 32-byte input
+bool KDF1Test_Succeeds() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input(32, 0xAB);
+    auto result = KDF1(key, ConstByteSpan{input.data(), input.size()});
+ 
+    return test_helper("1", std::to_string(result.has_value()));
+}
+ 
+// KDF1 is deterministic
+bool KDF1Test_Deterministic() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input(32, 0xAB);
+    auto r1 = KDF1(key, ConstByteSpan{input.data(), input.size()});
+    auto r2 = KDF1(key, ConstByteSpan{input.data(), input.size()});
+    if (!r1 || !r2) return test_helper("hash", "nullopt");
+ 
+    return test_helper("1", std::to_string(*r1 == *r2));
+}
+ 
+// KDF1 with different keys produces different output
+bool KDF1Test_DifferentKey() {
+    Blake3Hash key1{};
+    Blake3Hash key2{};
+    key1.fill(0x01);
+    key2.fill(0x02);
+ 
+    std::vector<std::uint8_t> input(32, 0xAB);
+    auto r1 = KDF1(key1, ConstByteSpan{input.data(), input.size()});
+    auto r2 = KDF1(key2, ConstByteSpan{input.data(), input.size()});
+    if (!r1 || !r2) return test_helper("hash", "nullopt");
+ 
+    return test_helper("1", std::to_string(*r1 != *r2));
+}
+ 
+// KDF1 with different input produces different output
+bool KDF1Test_DifferentInput() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input1(32, 0xAA);
+    std::vector<std::uint8_t> input2(32, 0xBB);
+    auto r1 = KDF1(key, ConstByteSpan{input1.data(), input1.size()});
+    auto r2 = KDF1(key, ConstByteSpan{input2.data(), input2.size()});
+    if (!r1 || !r2) return test_helper("hash", "nullopt");
+ 
+    return test_helper("1", std::to_string(*r1 != *r2));
+}
+ 
+// KDF1 with empty input succeeds (session key derivation path)
+bool KDF1Test_EmptyInput() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input{};
+    auto result = KDF1(key, ConstByteSpan{input.data(), input.size()});
+ 
+    return test_helper("1", std::to_string(result.has_value()));
+}
+ 
+// KDF1 matches manual computation: BLAKE3_keyed(BLAKE3_keyed(C, input), 0x01)
+bool KDF1Test_KnownAnswer() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input = {0xDE, 0xAD, 0xBE, 0xEF};
+ 
+    // Manual: PRK = BLAKE3_keyed(key, input)
+    auto prk = KeyedHash256(
+        std::span<const std::uint8_t, 32>{key},
+        ConstByteSpan{input.data(), input.size()}
+    );
+    if (!prk) return test_helper("hash", "nullopt");
+ 
+    // Manual: T0 = BLAKE3_keyed(PRK, 0x01)
+    const std::array<std::uint8_t, 1> counter = {0x01};
+    auto expected = KeyedHash256(
+        std::span<const std::uint8_t, 32>{*prk},
+        ConstByteSpan{counter}
+    );
+    if (!expected) return test_helper("hash", "nullopt");
+ 
+    auto result = KDF1(key, ConstByteSpan{input.data(), input.size()});
+    if (!result) return test_helper("hash", "nullopt");
+ 
+    return test_helper("1", std::to_string(*result == *expected));
+}
+ 
+// ============================================================================
+// KDF2 tests
+// ============================================================================
+ 
+// KDF2 succeeds and returns two distinct values
+bool KDF2Test_Succeeds_DistinctOutputs() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input(32, 0xAB);
+    auto result = KDF2(key, ConstByteSpan{input.data(), input.size()});
+    if (!result) return test_helper("hash", "nullopt");
+ 
+    auto& [t0, t1] = *result;
+ 
+    return test_helper("1", std::to_string(t0 != t1));
+}
+ 
+// KDF2 is deterministic
+bool KDF2Test_Deterministic() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input(32, 0xAB);
+    auto r1 = KDF2(key, ConstByteSpan{input.data(), input.size()});
+    auto r2 = KDF2(key, ConstByteSpan{input.data(), input.size()});
+    if (!r1 || !r2) return test_helper("hash", "nullopt");
+ 
+    auto& [t0a, t1a] = *r1;
+    auto& [t0b, t1b] = *r2;
+ 
+    bool match = (t0a == t0b) && (t1a == t1b);
+    return test_helper("1", std::to_string(match));
+}
+ 
+// KDF2 T0 matches KDF1 output for same inputs
+bool KDF2Test_T0MatchesKDF1() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input(32, 0xAB);
+    auto kdf1_result = KDF1(key, ConstByteSpan{input.data(), input.size()});
+    auto kdf2_result = KDF2(key, ConstByteSpan{input.data(), input.size()});
+    if (!kdf1_result || !kdf2_result) return test_helper("hash", "nullopt");
+ 
+    auto& [t0, t1] = *kdf2_result;
+ 
+    return test_helper("1", std::to_string(*kdf1_result == t0));
+}
+ 
+// KDF2 with empty input succeeds (session key derivation path)
+bool KDF2Test_EmptyInput() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input{};
+    auto result = KDF2(key, ConstByteSpan{input.data(), input.size()});
+ 
+    return test_helper("1", std::to_string(result.has_value()));
+}
+ 
+// KDF2 with different key produces different outputs
+bool KDF2Test_DifferentKey() {
+    Blake3Hash key1{};
+    Blake3Hash key2{};
+    key1.fill(0x01);
+    key2.fill(0x02);
+ 
+    std::vector<std::uint8_t> input(32, 0xAB);
+    auto r1 = KDF2(key1, ConstByteSpan{input.data(), input.size()});
+    auto r2 = KDF2(key2, ConstByteSpan{input.data(), input.size()});
+    if (!r1 || !r2) return test_helper("hash", "nullopt");
+ 
+    auto& [t0a, t1a] = *r1;
+    auto& [t0b, t1b] = *r2;
+ 
+    bool different = (t0a != t0b) && (t1a != t1b);
+    return test_helper("1", std::to_string(different));
+}
+ 
+// ============================================================================
+// KDF3 tests
+// ============================================================================
+ 
+// KDF3 succeeds and returns three distinct values
+bool KDF3Test_Succeeds_DistinctOutputs() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input(32, 0xAB);
+    auto result = KDF3(key, ConstByteSpan{input.data(), input.size()});
+    if (!result) return test_helper("hash", "nullopt");
+ 
+    auto& [t0, t1, t2] = *result;
+ 
+    bool all_distinct = (t0 != t1) && (t1 != t2) && (t0 != t2);
+    return test_helper("1", std::to_string(all_distinct));
+}
+ 
+// KDF3 is deterministic
+bool KDF3Test_Deterministic() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input(32, 0xAB);
+    auto r1 = KDF3(key, ConstByteSpan{input.data(), input.size()});
+    auto r2 = KDF3(key, ConstByteSpan{input.data(), input.size()});
+    if (!r1 || !r2) return test_helper("hash", "nullopt");
+ 
+    auto& [t0a, t1a, t2a] = *r1;
+    auto& [t0b, t1b, t2b] = *r2;
+ 
+    bool match = (t0a == t0b) && (t1a == t1b) && (t2a == t2b);
+    return test_helper("1", std::to_string(match));
+}
+ 
+// KDF3 T0 and T1 match KDF2 outputs for same inputs
+bool KDF3Test_T0T1MatchKDF2() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input(32, 0xAB);
+    auto kdf2_result = KDF2(key, ConstByteSpan{input.data(), input.size()});
+    auto kdf3_result = KDF3(key, ConstByteSpan{input.data(), input.size()});
+    if (!kdf2_result || !kdf3_result) return test_helper("hash", "nullopt");
+ 
+    auto& [t0_2, t1_2] = *kdf2_result;
+    auto& [t0_3, t1_3, t2_3] = *kdf3_result;
+ 
+    bool match = (t0_2 == t0_3) && (t1_2 == t1_3);
+    return test_helper("1", std::to_string(match));
+}
+ 
+// KDF3 with empty input succeeds (session key derivation path)
+bool KDF3Test_EmptyInput() {
+    Blake3Hash key{};
+    key.fill(0x01);
+ 
+    std::vector<std::uint8_t> input{};
+    auto result = KDF3(key, ConstByteSpan{input.data(), input.size()});
+ 
+    return test_helper("1", std::to_string(result.has_value()));
+}
+ 
+// KDF3 with different key produces different outputs
+bool KDF3Test_DifferentKey() {
+    Blake3Hash key1{};
+    Blake3Hash key2{};
+    key1.fill(0x01);
+    key2.fill(0x02);
+ 
+    std::vector<std::uint8_t> input(32, 0xAB);
+    auto r1 = KDF3(key1, ConstByteSpan{input.data(), input.size()});
+    auto r2 = KDF3(key2, ConstByteSpan{input.data(), input.size()});
+    if (!r1 || !r2) return test_helper("hash", "nullopt");
+ 
+    auto& [t0a, t1a, t2a] = *r1;
+    auto& [t0b, t1b, t2b] = *r2;
+ 
+    bool different = (t0a != t0b) && (t1a != t1b) && (t2a != t2b);
+    return test_helper("1", std::to_string(different));
 }

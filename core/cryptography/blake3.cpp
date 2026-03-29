@@ -28,16 +28,6 @@ namespace core::cryptography::blake3 {
         std::span<const std::uint8_t> input
     ) -> std::optional<Hash> {
 
-        if (input.empty()) {
-            Logger::Warning("Blake3: Empty data passed into Hash256");
-            return std::nullopt;
-        }
-
-        if (key.empty()) {
-            Logger::Warning("Blake3: Empty key passed into KeyedHash256");
-            return std::nullopt;
-        }
-
         blake3_hasher hasher;
         blake3_hasher_init_keyed(&hasher, key.data());
         blake3_hasher_update(&hasher, input.data(), input.size());

@@ -155,7 +155,4 @@ auto KDF3(const Blake3Hash& chaining_key,ConstByteSpan input) -> std::optional<s
     return std::make_tuple(*t0, *t1, *t2);
 }
 
-
-
-
 } // namespace core::handshake
