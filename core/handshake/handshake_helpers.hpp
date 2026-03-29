@@ -46,14 +46,21 @@ void MixHash(Blake3Hash& hash, ConstByteSpan data);
 // ---------------------------------------------------------------------------
 // MixKey
 // ---------------------------------------------------------------------------
-// C, k = KDF2(C, input)
+// C = KDF1(C, input)
 //
-// Ratchets the chaining key forward and produces a symmetric
-// encryption key. After MixKey the caller can use k with
-// EncryptAndHash / DecryptAndHash.
+// Absorbs a shared secret (DH output, KEM shared secret, or raw
+// public-key material) into the chaining key.  This is a "blind"
+// ratchet — it does NOT produce an encryption key.
+//
+// When the handshake logic needs an encryption key after a DH/KEM
+// operation, it calls KDF2 directly at the call site instead.
+//
+// The ordering of MixKey calls is what provides the hybrid security
+// guarantee: if either the X25519 DH output or the ML-KEM shared
+// secret is secure, the resulting chaining key remains unpredictable.
 // ---------------------------------------------------------------------------
  
-[[nodiscard]] auto MixKey(Blake3Hash& chaining_key, ConstByteSpan input) -> std::optional<Blake3Hash>;
+[[nodiscard]] auto MixKey(Blake3Hash& chaining_key, ConstByteSpan input) -> bool;
 
 // ---------------------------------------------------------------------------
 // EncryptAndHash / DecryptAndHash

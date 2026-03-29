@@ -155,4 +155,16 @@ auto KDF3(const Blake3Hash& chaining_key,ConstByteSpan input) -> std::optional<s
     return std::make_tuple(*t0, *t1, *t2);
 }
 
+auto MixKey(Blake3Hash& chaining_key, ConstByteSpan input) -> bool {
+    // C = KDF1(C, input)
+    auto result = KDF1(chaining_key, input);
+    if (!result) {
+        Logger::Warning("MixKey: Failed to generate result");
+        return false;
+    }
+
+    chaining_key = *result;
+    return true;
+}
+
 } // namespace core::handshake
