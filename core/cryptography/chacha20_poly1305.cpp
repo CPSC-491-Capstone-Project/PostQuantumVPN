@@ -9,11 +9,6 @@ namespace core::cryptography::chacha20_poly1305 {
 
     auto Encrypt(std::span<const std::uint8_t> plaintext, const Key& key, const Nonce& nonce, std::span<const std::uint8_t> aad) 
     -> std::optional<EncryptResult> { 
-        
-        if (plaintext.empty()) {
-            Logger::Info("ChaCha20-Poly1305: Encrypt called with empty plaintext");
-            return std::nullopt;
-        }
 
         EvpCipherCtxPtr ctx{EVP_CIPHER_CTX_new()};
         if (!ctx) {
@@ -79,11 +74,6 @@ namespace core::cryptography::chacha20_poly1305 {
 
     auto Decrypt(std::span<const std::uint8_t> ciphertext, const Tag& tag, const Key& key, const Nonce& nonce, std::span<const std::uint8_t> aad) 
     -> std::optional<std::vector<std::uint8_t>> { 
-
-        if (ciphertext.empty()) {
-            Logger::Info("ChaCha20-Poly1305: Decrypt called with empty ciphertext");
-            return std::nullopt;
-        }
 
         EvpCipherCtxPtr ctx{EVP_CIPHER_CTX_new()};
         if (!ctx) {

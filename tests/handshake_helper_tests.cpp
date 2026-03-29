@@ -457,3 +457,276 @@ bool KDF3Test_DifferentKey() {
     bool different = (t0a != t0b) && (t1a != t1b) && (t2a != t2b);
     return test_helper("1", std::to_string(different));
 }
+// ============================================================================
+// EncryptAndHash / DecryptAndHash tests
+// ============================================================================
+
+// Helper: derive a single-use AEAD key from KDF2, as the handshake would.
+// Returns (new_chaining_key, aead_key).
+static std::optional<std::tuple<Blake3Hash, Blake3Hash>>
+DeriveTestKey(const Blake3Hash& ck, std::uint8_t pattern) {
+    std::vector<std::uint8_t> fake_dh(32, pattern);
+    return KDF2(ck, ConstByteSpan{fake_dh.data(), fake_dh.size()});
+}
+
+// Encrypt then decrypt recovers the original plaintext
+bool EncryptAndHashTest_Roundtrip_Basic() {
+    InitHandshakeConstants();
+
+    auto kdf = DeriveTestKey(InitialChainingKey(), 0xAB);
+    if (!kdf) return test_helper("kdf2", "nullopt");
+    auto& [ck, key] = *kdf;
+
+    Blake3Hash h_send = InitialHash();
+    Blake3Hash h_recv = h_send;
+
+    std::vector<std::uint8_t> pt = {'h', 'e', 'l', 'l', 'o'};
+
+    auto ct = EncryptAndHash(h_send, key, ConstByteSpan{pt.data(), pt.size()});
+    if (!ct) return test_helper("encrypt", "nullopt");
+
+    auto recovered = DecryptAndHash(h_recv, key, ConstByteSpan{ct->data(), ct->size()});
+    if (!recovered) return test_helper("decrypt", "nullopt");
+
+    return test_helper("1", std::to_string(*recovered == pt));
+}
+
+// Sender and receiver arrive at identical H after encrypt/decrypt
+bool EncryptAndHashTest_HashConvergence() {
+    InitHandshakeConstants();
+
+    auto kdf = DeriveTestKey(InitialChainingKey(), 0xCD);
+    if (!kdf) return test_helper("kdf2", "nullopt");
+    auto& [ck, key] = *kdf;
+
+    Blake3Hash h_send = InitialHash();
+    Blake3Hash h_recv = h_send;
+
+    std::vector<std::uint8_t> pt = {0x01, 0x02, 0x03, 0x04};
+
+    auto ct = EncryptAndHash(h_send, key, ConstByteSpan{pt.data(), pt.size()});
+    if (!ct) return test_helper("encrypt", "nullopt");
+
+    auto _ = DecryptAndHash(h_recv, key, ConstByteSpan{ct->data(), ct->size()});
+
+    return test_helper("1", std::to_string(h_send == h_recv));
+}
+
+// EncryptAndHash actually changes H (it's not a no-op)
+bool EncryptAndHashTest_HashChanges() {
+    InitHandshakeConstants();
+
+    auto kdf = DeriveTestKey(InitialChainingKey(), 0x66);
+    if (!kdf) return test_helper("kdf2", "nullopt");
+    auto& [ck, key] = *kdf;
+
+    Blake3Hash h = InitialHash();
+    Blake3Hash h_before = h;
+
+    std::vector<std::uint8_t> pt = {0x42};
+    auto ct = EncryptAndHash(h, key, ConstByteSpan{pt.data(), pt.size()});
+    if (!ct) return test_helper("encrypt", "nullopt");
+
+    return test_helper("1", std::to_string(h != h_before));
+}
+
+// Output size = plaintext length + 16-byte Poly1305 tag
+bool EncryptAndHashTest_OutputSize() {
+    InitHandshakeConstants();
+
+    auto kdf = DeriveTestKey(InitialChainingKey(), 0x44);
+    if (!kdf) return test_helper("kdf2", "nullopt");
+    auto& [ck, key] = *kdf;
+
+    Blake3Hash h = InitialHash();
+
+    // 32-byte plaintext (like encrypting a static public key)
+    std::vector<std::uint8_t> pt(32, 0xBB);
+    auto ct = EncryptAndHash(h, key, ConstByteSpan{pt.data(), pt.size()});
+    if (!ct) return test_helper("encrypt", "nullopt");
+
+    return test_helper("1", std::to_string(ct->size() == 32 + 16));
+}
+
+// Empty plaintext succeeds — WireGuard's response message encrypts
+// an empty payload ("encrypted nothing") as an authentication tag
+bool EncryptAndHashTest_EmptyPlaintext() {
+    InitHandshakeConstants();
+
+    auto kdf = DeriveTestKey(InitialChainingKey(), 0x33);
+    if (!kdf) return test_helper("kdf2", "nullopt");
+    auto& [ck, key] = *kdf;
+
+    Blake3Hash h_send = InitialHash();
+    Blake3Hash h_recv = h_send;
+
+    std::vector<std::uint8_t> empty_pt{};
+    auto ct = EncryptAndHash(h_send, key, ConstByteSpan{empty_pt.data(), empty_pt.size()});
+    if (!ct) return test_helper("encrypt", "nullopt");
+
+    // Output should be exactly the 16-byte tag
+    bool size_ok = (ct->size() == 16);
+
+    auto recovered = DecryptAndHash(h_recv, key, ConstByteSpan{ct->data(), ct->size()});
+    if (!recovered) return test_helper("decrypt", "nullopt");
+
+    bool empty_recovered = recovered->empty();
+    bool hashes_match = (h_send == h_recv);
+
+    return test_helper("1", std::to_string(size_ok && empty_recovered && hashes_match));
+}
+
+// Flipping a byte in the ciphertext body causes decryption to fail
+bool DecryptAndHashTest_TamperedCiphertext() {
+    InitHandshakeConstants();
+
+    auto kdf = DeriveTestKey(InitialChainingKey(), 0xEF);
+    if (!kdf) return test_helper("kdf2", "nullopt");
+    auto& [ck, key] = *kdf;
+
+    Blake3Hash h_send = InitialHash();
+    Blake3Hash h_recv = h_send;
+
+    std::vector<std::uint8_t> pt = {'s', 'e', 'c', 'r', 'e', 't'};
+    auto ct = EncryptAndHash(h_send, key, ConstByteSpan{pt.data(), pt.size()});
+    if (!ct) return test_helper("encrypt", "nullopt");
+
+    // Flip a byte in the ciphertext body (before the tag)
+    (*ct)[0] ^= 0xFF;
+
+    auto result = DecryptAndHash(h_recv, key, ConstByteSpan{ct->data(), ct->size()});
+
+    return test_helper("1", std::to_string(!result.has_value()));
+}
+
+// Flipping a byte in the Poly1305 tag causes decryption to fail
+bool DecryptAndHashTest_TamperedTag() {
+    InitHandshakeConstants();
+
+    auto kdf = DeriveTestKey(InitialChainingKey(), 0x88);
+    if (!kdf) return test_helper("kdf2", "nullopt");
+    auto& [ck, key] = *kdf;
+
+    Blake3Hash h_send = InitialHash();
+    Blake3Hash h_recv = h_send;
+
+    std::vector<std::uint8_t> pt = {0xDE, 0xAD, 0xBE, 0xEF};
+    auto ct = EncryptAndHash(h_send, key, ConstByteSpan{pt.data(), pt.size()});
+    if (!ct) return test_helper("encrypt", "nullopt");
+
+    // Flip a byte in the tag (last 16 bytes)
+    ct->back() ^= 0x01;
+
+    auto result = DecryptAndHash(h_recv, key, ConstByteSpan{ct->data(), ct->size()});
+
+    return test_helper("1", std::to_string(!result.has_value()));
+}
+
+// On decryption failure, H must NOT be modified
+bool DecryptAndHashTest_HashUnchangedOnFailure() {
+    InitHandshakeConstants();
+
+    auto kdf = DeriveTestKey(InitialChainingKey(), 0x77);
+    if (!kdf) return test_helper("kdf2", "nullopt");
+    auto& [ck, key] = *kdf;
+
+    Blake3Hash h_send = InitialHash();
+
+    std::vector<std::uint8_t> pt = {0xDE, 0xAD};
+    auto ct = EncryptAndHash(h_send, key, ConstByteSpan{pt.data(), pt.size()});
+    if (!ct) return test_helper("encrypt", "nullopt");
+
+    Blake3Hash h_recv = InitialHash();
+    Blake3Hash h_recv_before = h_recv;
+
+    // Tamper with the tag
+    ct->back() ^= 0x01;
+
+    auto result = DecryptAndHash(h_recv, key, ConstByteSpan{ct->data(), ct->size()});
+
+    bool failed = !result.has_value();
+    bool hash_unchanged = (h_recv == h_recv_before);
+
+    return test_helper("1", std::to_string(failed && hash_unchanged));
+}
+
+// Wrong key fails decryption
+bool DecryptAndHashTest_WrongKey() {
+    InitHandshakeConstants();
+
+    auto kdf = DeriveTestKey(InitialChainingKey(), 0x55);
+    if (!kdf) return test_helper("kdf2", "nullopt");
+    auto& [ck, key] = *kdf;
+
+    Blake3Hash h_send = InitialHash();
+
+    std::vector<std::uint8_t> pt = {0x01};
+    auto ct = EncryptAndHash(h_send, key, ConstByteSpan{pt.data(), pt.size()});
+    if (!ct) return test_helper("encrypt", "nullopt");
+
+    Blake3Hash wrong_key{};
+    wrong_key.fill(0xFF);
+
+    Blake3Hash h_recv = InitialHash();
+    auto result = DecryptAndHash(h_recv, wrong_key, ConstByteSpan{ct->data(), ct->size()});
+
+    return test_helper("1", std::to_string(!result.has_value()));
+}
+
+// Input shorter than 16 bytes is rejected (no room for a tag)
+bool DecryptAndHashTest_InputTooShort() {
+    Blake3Hash h{};
+    h.fill(0x00);
+    Blake3Hash key{};
+    key.fill(0xAA);
+
+    std::vector<std::uint8_t> short_input = {0x01, 0x02, 0x03};
+    auto result = DecryptAndHash(h, key, ConstByteSpan{short_input.data(), short_input.size()});
+
+    return test_helper("1", std::to_string(!result.has_value()));
+}
+
+// Mismatched H between sender and receiver causes decryption to fail
+// (H is used as AAD — if the receiver has a different H, authentication fails)
+bool DecryptAndHashTest_MismatchedHash() {
+    InitHandshakeConstants();
+
+    auto kdf = DeriveTestKey(InitialChainingKey(), 0x99);
+    if (!kdf) return test_helper("kdf2", "nullopt");
+    auto& [ck, key] = *kdf;
+
+    Blake3Hash h_send = InitialHash();
+
+    std::vector<std::uint8_t> pt = {'t', 'e', 's', 't'};
+    auto ct = EncryptAndHash(h_send, key, ConstByteSpan{pt.data(), pt.size()});
+    if (!ct) return test_helper("encrypt", "nullopt");
+
+    // Receiver has a different H (simulates desynchronized transcript)
+    Blake3Hash h_recv{};
+    h_recv.fill(0xFF);
+
+    auto result = DecryptAndHash(h_recv, key, ConstByteSpan{ct->data(), ct->size()});
+
+    return test_helper("1", std::to_string(!result.has_value()));
+}
+
+// Deterministic: same key, same H, same plaintext -> same ciphertext
+bool EncryptAndHashTest_Deterministic() {
+    InitHandshakeConstants();
+
+    auto kdf = DeriveTestKey(InitialChainingKey(), 0xDD);
+    if (!kdf) return test_helper("kdf2", "nullopt");
+    auto& [ck, key] = *kdf;
+
+    Blake3Hash h1 = InitialHash();
+    Blake3Hash h2 = InitialHash();
+
+    std::vector<std::uint8_t> pt = {0x01, 0x02, 0x03};
+
+    auto ct1 = EncryptAndHash(h1, key, ConstByteSpan{pt.data(), pt.size()});
+    auto ct2 = EncryptAndHash(h2, key, ConstByteSpan{pt.data(), pt.size()});
+
+    if (!ct1 || !ct2) return test_helper("encrypt", "nullopt");
+
+    return test_helper("1", std::to_string(*ct1 == *ct2));
+}
