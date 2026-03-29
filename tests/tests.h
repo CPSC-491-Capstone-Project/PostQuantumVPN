@@ -197,6 +197,28 @@ bool MixHashTest_KnownAnswer_ZeroHash_Abc();
 bool MixHashTest_KnownAnswer_ProtocolInitialHash();
 bool MixHashTest_LargeData();
 
+// KDF1
+bool KDF1Test_Succeeds();
+bool KDF1Test_Deterministic();
+bool KDF1Test_DifferentKey();
+bool KDF1Test_DifferentInput();
+bool KDF1Test_EmptyInput();
+bool KDF1Test_KnownAnswer();
+
+// KDF2
+bool KDF2Test_Succeeds_DistinctOutputs();
+bool KDF2Test_Deterministic();
+bool KDF2Test_T0MatchesKDF1();
+bool KDF2Test_EmptyInput();
+bool KDF2Test_DifferentKey();
+
+// KDF3
+bool KDF3Test_Succeeds_DistinctOutputs();
+bool KDF3Test_Deterministic();
+bool KDF3Test_T0T1MatchKDF2();
+bool KDF3Test_EmptyInput();
+bool KDF3Test_DifferentKey();
+
 // =============================================================================
 // Future Test Categories
 // =============================================================================

@@ -1,11 +1,15 @@
 #include "blake3.hpp"
+#include "logger.hpp"
+
+using core::utils::Logger;
 
 namespace core::cryptography::blake3 {
+
 
     auto Hash256(std::span<const std::uint8_t> input) -> std::optional<Hash> {
 
         if (input.empty()) {
-            // TODO: Log Info
+            Logger::Warning("Blake3: Empty data passed into Hash256");
             return std::nullopt;
         }
 
@@ -19,18 +23,33 @@ namespace core::cryptography::blake3 {
         return out;
     }
 
+    auto KeyedHash256(
+        std::span<const std::uint8_t, kDefaultHashBytes> key,
+        std::span<const std::uint8_t> input
+    ) -> std::optional<Hash> {
+
+        blake3_hasher hasher;
+        blake3_hasher_init_keyed(&hasher, key.data());
+        blake3_hasher_update(&hasher, input.data(), input.size());
+ 
+        Hash out{};
+        blake3_hasher_finalize(&hasher, out.data(), kDefaultHashBytes);
+ 
+        return out;
+    }
+
     auto HashXof(
         std::span<const std::uint8_t> input,
         std::size_t output_len
     ) -> std::optional<std::vector<std::uint8_t>> {
 
         if (input.empty()) {
-            // TODO: Log Info
+            Logger::Warning("Blake3: Empty data passed into HashXof");
             return std::nullopt;
         }
 
         if (output_len == 0) {
-            // TODO: Log Info
+            Logger::Warning("Blake3: Output length of 0 passed into HashXor");
             return std::nullopt;
         }
 

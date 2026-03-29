@@ -23,6 +23,14 @@ namespace core::cryptography::blake3 {
         std::span<const std::uint8_t> input
     ) -> std::optional<Hash>;
 
+    /// Keyed hash: BLAKE3_keyed(key, input) -> 32-byte digest
+    /// Uses BLAKE3's built-in keyed-hash mode (key must be exactly 32 bytes).
+    /// Input may be empty (e.g. session key derivation with nil input).
+    [[nodiscard]] auto KeyedHash256(
+        std::span<const std::uint8_t, kDefaultHashBytes> key,
+        std::span<const std::uint8_t> input
+    ) -> std::optional<Hash>;
+
     /// Hash arbitrary input data into a caller-specified output length (XOF mode)
     /// output_len must be > 0
     [[nodiscard]] auto HashXof(

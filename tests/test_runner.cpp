@@ -334,6 +334,31 @@ int main(int argc, char* argv[]) {
     Run(MixHashTest_KnownAnswer_ProtocolInitialHash, "MixHash: KAT protocol init hash");
     Run(MixHashTest_LargeData,                     "MixHash: 4 KB data");
 
+        // KDF1
+    std::cout << "\n";
+    Run(KDF1Test_Succeeds,                         "KDF1: succeeds");
+    Run(KDF1Test_Deterministic,                    "KDF1: deterministic");
+    Run(KDF1Test_DifferentKey,                     "KDF1: diff key -> diff output");
+    Run(KDF1Test_DifferentInput,                   "KDF1: diff input -> diff output");
+    Run(KDF1Test_EmptyInput,                       "KDF1: empty input succeeds");
+    Run(KDF1Test_KnownAnswer,                      "KDF1: KAT manual computation");
+ 
+    // KDF2
+    std::cout << "\n";
+    Run(KDF2Test_Succeeds_DistinctOutputs,         "KDF2: T0 != T1");
+    Run(KDF2Test_Deterministic,                    "KDF2: deterministic");
+    Run(KDF2Test_T0MatchesKDF1,                    "KDF2: T0 == KDF1 output");
+    Run(KDF2Test_EmptyInput,                       "KDF2: empty input succeeds");
+    Run(KDF2Test_DifferentKey,                     "KDF2: diff key -> diff output");
+ 
+    // KDF3
+    std::cout << "\n";
+    Run(KDF3Test_Succeeds_DistinctOutputs,         "KDF3: T0 != T1 != T2");
+    Run(KDF3Test_Deterministic,                    "KDF3: deterministic");
+    Run(KDF3Test_T0T1MatchKDF2,                    "KDF3: T0,T1 == KDF2 output");
+    Run(KDF3Test_EmptyInput,                       "KDF3: empty input succeeds");
+    Run(KDF3Test_DifferentKey,                     "KDF3: diff key -> diff output");
+
     // =============================================================================
     // Future Tests
     // =============================================================================
