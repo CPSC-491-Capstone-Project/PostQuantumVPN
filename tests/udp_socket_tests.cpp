@@ -1,6 +1,10 @@
 #include "tests.h"
 #include "udp_socket.hpp"
 
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
+
 #include <vector>
 #include <cstring>
 

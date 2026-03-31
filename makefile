@@ -72,7 +72,7 @@ else ifeq ($(PLATFORM),windows)
 	OPENSSL_CHECK := $(shell where openssl >nul 2>&1 && echo yes || echo no)
 	ifeq ($(OPENSSL_CHECK),yes)
 		LIB_CFLAGS :=
-		LDFLAGS := -lssl -lcrypto
+		LDFLAGS := -lssl -lcrypto -lws2_32
 	else
 		OPENSSL_FOUND := no
 	endif
