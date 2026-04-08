@@ -1,6 +1,9 @@
 #include "tests.h"
 #include "hkdf.hpp"
 
+// Tests for the HKDF wrapper covering extract output size, expand output size,
+// derive key determinism, different inputs produce different outputs, and roundtrip correctness.
+
 using namespace core::cryptography::hkdf;
 
 static std::string BytesMatch(const std::vector<std::uint8_t>& a, const std::vector<std::uint8_t>& b) {
