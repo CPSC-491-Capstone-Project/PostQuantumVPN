@@ -43,6 +43,8 @@ namespace core::cryptography::hkdf {
         return pseudorandomKey;
     }
 
+    // Expand phase - takes the pseudorandom key and info string, stretches into output key material
+    // of requested length. Info string binds the key to a specific context to prevent reuse.
     auto Expand(
         const std::vector<std::uint8_t>& pseudorandomKey,
         const std::vector<std::uint8_t>& info,
@@ -78,6 +80,8 @@ namespace core::cryptography::hkdf {
         return outputKey;
     }
 
+    // DeriveKey - convenience wrapper that combines extract and expand in one call.
+    // Used by the handshake module to derive session keys after the key exchange completes.
     auto DeriveKey(
         const std::vector<std::uint8_t>& salt,
         const std::vector<std::uint8_t>& inputKeyMaterial,
