@@ -43,6 +43,8 @@ namespace core::cryptography::hkdf {
         return pseudorandomKey;
     }
 
+    // Expand phase - takes the pseudorandom key and info string, stretches into output key material
+    // of requested length. Info string binds the key to a specific context to prevent reuse.
     auto Expand(
         const std::vector<std::uint8_t>& pseudorandomKey,
         const std::vector<std::uint8_t>& info,
