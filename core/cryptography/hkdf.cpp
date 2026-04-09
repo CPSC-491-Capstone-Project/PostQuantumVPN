@@ -8,6 +8,8 @@ using core::utils::Logger;
 
 namespace core::cryptography::hkdf {
 
+    // Extract phase - takes salt and input key material, produces a 32-byte pseudorandom key
+    // using OpenSSL HKDF with SHA-256. Can be precomputed once per session.
     auto Extract(
         const std::vector<std::uint8_t>& salt,
         const std::vector<std::uint8_t>& inputKeyMaterial
