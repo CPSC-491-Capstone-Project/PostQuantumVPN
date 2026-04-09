@@ -6,6 +6,40 @@
 #include "bit_utils.hpp"
 
 namespace core::handshake {
+    
+// ---------------------------------------------------------------------------
+// Mac1Key
+// ---------------------------------------------------------------------------
+// Derives the mac1 key for a given static X25519 public key.
+// mac1_key = BLAKE3-256("mac1----" || responder_static_x25519_pub)
+// Can be precomputed once per peer.
+// ---------------------------------------------------------------------------
+[[nodiscard]] auto DeriveMac1Key(
+    ConstByteSpan responder_static_pub
+) -> std::optional<Blake3Hash>;
+
+// ---------------------------------------------------------------------------
+// ComputeMac1
+// ---------------------------------------------------------------------------
+// Computes mac1 over the message bytes before the mac1 field.
+// mac1 = BLAKE3-keyed(mac1_key, message_bytes_before_mac1) truncated to 16 bytes
+// ---------------------------------------------------------------------------
+[[nodiscard]] auto ComputeMac1(
+    const Blake3Hash& mac1_key,
+    ConstByteSpan message_before_mac1
+) -> std::optional<std::array<std::uint8_t, 16>>;
+
+// ---------------------------------------------------------------------------
+// VerifyMac1
+// ---------------------------------------------------------------------------
+// Verifies mac1 using constant time comparison.
+// Returns false and should be dropped silently on mismatch.
+// ---------------------------------------------------------------------------
+[[nodiscard]] auto VerifyMac1(
+    const Blake3Hash& mac1_key,
+    ConstByteSpan message_before_mac1,
+    std::span<const std::uint8_t, 16> received_mac1
+) -> bool;
 
 // ---------------------------------------------------------------------------
 // MixHash

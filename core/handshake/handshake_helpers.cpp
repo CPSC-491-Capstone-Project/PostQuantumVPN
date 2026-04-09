@@ -230,4 +230,65 @@ auto DecryptAndHash(Blake3Hash& hash, const Blake3Hash& key, ConstByteSpan ciphe
     return plaintext;
 }
 
+auto DeriveMac1Key(ConstByteSpan responder_static_pub) -> std::optional<Blake3Hash> {
+    // Build input: "mac1----" || responder_static_x25519_pub
+    std::vector<std::uint8_t> input;
+    input.reserve(kLabelMac1.size() + responder_static_pub.size());
+
+    for (auto c : kLabelMac1)
+        input.push_back(static_cast<std::uint8_t>(c));
+    for (auto b : responder_static_pub)
+        input.push_back(b);
+
+    auto result = Hash256(ConstByteSpan{input.data(), input.size()});
+    if (!result) {
+        Logger::Error("Handshake: DeriveMac1Key failed");
+        return std::nullopt;
+    }
+
+    return result;
+}
+
+auto ComputeMac1(
+    const Blake3Hash& mac1_key,
+    ConstByteSpan message_before_mac1
+) -> std::optional<std::array<std::uint8_t, 16>>
+{
+    auto hash = KeyedHash256(
+        std::span<const std::uint8_t, 32>(mac1_key.data(), 32),
+        message_before_mac1
+    );
+
+    if (!hash) {
+        Logger::Error("Handshake: ComputeMac1 failed");
+        return std::nullopt;
+    }
+
+    // Truncate to 16 bytes
+    std::array<std::uint8_t, 16> mac1;
+    std::memcpy(mac1.data(), hash->data(), 16);
+    return mac1;
+}
+
+auto VerifyMac1(
+    const Blake3Hash& mac1_key,
+    ConstByteSpan message_before_mac1,
+    std::span<const std::uint8_t, 16> received_mac1
+) -> bool
+{
+    auto expected = ComputeMac1(mac1_key, message_before_mac1);
+    if (!expected) {
+        Logger::Error("Handshake: VerifyMac1 failed to compute expected MAC");
+        return false;
+    }
+
+    // Constant time comparison to prevent timing attacks
+    int diff = 0;
+    for (std::size_t i = 0; i < 16; i++) {
+        diff |= expected->at(i) ^ received_mac1[i];
+    }
+
+    return diff == 0;
+}
+
 } // namespace core::handshake
