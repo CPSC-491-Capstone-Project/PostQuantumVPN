@@ -42,6 +42,98 @@ namespace core::handshake {
 ) -> bool;
 
 // ---------------------------------------------------------------------------
+// Cookie constants
+// ---------------------------------------------------------------------------
+inline constexpr std::size_t kCookieBytes = 16;
+inline constexpr std::size_t kRotatingSecretBytes = 32;
+inline constexpr std::size_t kCookieNonceBytes = 12;
+
+using Cookie = std::array<std::uint8_t, kCookieBytes>;
+using RotatingSecret = std::array<std::uint8_t, kRotatingSecretBytes>;
+using CookieNonce = std::array<std::uint8_t, kCookieNonceBytes>;
+
+// ---------------------------------------------------------------------------
+// Cookie Reply message struct (Type 3) — 64 bytes total
+// ---------------------------------------------------------------------------
+struct CookieReply {
+    std::uint32_t type{3};
+    std::uint32_t receiver_index{0};
+    CookieNonce   nonce{};
+    // 16 bytes cookie + 16 bytes Poly1305 tag = 32 bytes
+    std::array<std::uint8_t, 32> encrypted_cookie{};
+};
+
+// ---------------------------------------------------------------------------
+// DeriveCookieKey
+// ---------------------------------------------------------------------------
+// cookie_key = BLAKE3-256("cookie--" || static_x25519_pub)
+// Can be precomputed once per peer.
+// ---------------------------------------------------------------------------
+[[nodiscard]] auto DeriveCookieKey(
+    ConstByteSpan static_x25519_pub
+) -> std::optional<Blake3Hash>;
+
+// ---------------------------------------------------------------------------
+// GenerateCookie
+// ---------------------------------------------------------------------------
+// Generates a 16-byte cookie for a specific sender IP and port.
+// cookie = BLAKE3-128(key=rotating_secret, data=sender_ip_bytes || port)
+// ---------------------------------------------------------------------------
+[[nodiscard]] auto GenerateCookie(
+    const RotatingSecret& rotating_secret,
+    const std::string& sender_ip,
+    std::uint16_t sender_port
+) -> std::optional<Cookie>;
+
+// ---------------------------------------------------------------------------
+// BuildCookieReply
+// ---------------------------------------------------------------------------
+// Builds a Type 3 Cookie Reply message.
+// Encrypts the cookie using ChaCha20-Poly1305 with mac1 as AAD.
+// ---------------------------------------------------------------------------
+[[nodiscard]] auto BuildCookieReply(
+    std::uint32_t receiver_index,
+    const Cookie& cookie,
+    const Blake3Hash& cookie_key,
+    std::span<const std::uint8_t, 16> mac1
+) -> std::optional<CookieReply>;
+
+// ---------------------------------------------------------------------------
+// DecryptCookieReply
+// ---------------------------------------------------------------------------
+// Decrypts a Cookie Reply message and returns the 16-byte cookie.
+// last_mac1_sent is the mac1 from the message that triggered the cookie reply.
+// ---------------------------------------------------------------------------
+[[nodiscard]] auto DecryptCookieReply(
+    const CookieReply& reply,
+    const Blake3Hash& cookie_key,
+    std::span<const std::uint8_t, 16> last_mac1_sent
+) -> std::optional<Cookie>;
+
+// ---------------------------------------------------------------------------
+// ComputeMac2
+// ---------------------------------------------------------------------------
+// mac2 = BLAKE3-128(key=cookie, data=message_bytes_before_mac2)
+// If no valid cookie, returns 16 zero bytes.
+// ---------------------------------------------------------------------------
+[[nodiscard]] auto ComputeMac2(
+    const Cookie& cookie,
+    ConstByteSpan message_before_mac2
+) -> std::optional<std::array<std::uint8_t, 16>>;
+
+// ---------------------------------------------------------------------------
+// VerifyMac2
+// ---------------------------------------------------------------------------
+// Verifies mac2 using constant time comparison.
+// Only called when server is under load.
+// ---------------------------------------------------------------------------
+[[nodiscard]] auto VerifyMac2(
+    const Cookie& cookie,
+    ConstByteSpan message_before_mac2,
+    std::span<const std::uint8_t, 16> received_mac2
+) -> bool;
+
+// ---------------------------------------------------------------------------
 // MixHash
 // ---------------------------------------------------------------------------
 // H = HASH(H || data)

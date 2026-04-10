@@ -1,8 +1,18 @@
 #include "handshake_helpers.hpp"
 #include "logger.hpp"
 #include "chacha20_poly1305.hpp"
+#include "udp_socket.hpp"
+#include "random.hpp"
 
 #include <tuple>
+#include <cstring>
+
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <arpa/inet.h>
+#endif
 
 using core::utils::Logger;
 using core::cryptography::blake3::Hash256;
@@ -286,6 +296,198 @@ auto VerifyMac1(
     int diff = 0;
     for (std::size_t i = 0; i < 16; i++) {
         diff |= expected->at(i) ^ received_mac1[i];
+    }
+
+    return diff == 0;
+}
+
+auto DeriveCookieKey(ConstByteSpan static_x25519_pub) -> std::optional<Blake3Hash> {
+    // Build input: "cookie--" || static_x25519_pub
+    std::vector<std::uint8_t> input;
+    input.reserve(kLabelCookie.size() + static_x25519_pub.size());
+
+    for (auto c : kLabelCookie)
+        input.push_back(static_cast<std::uint8_t>(c));
+    for (auto b : static_x25519_pub)
+        input.push_back(b);
+
+    auto result = Hash256(ConstByteSpan{input.data(), input.size()});
+    if (!result) {
+        Logger::Error("Handshake: DeriveCookieKey failed");
+        return std::nullopt;
+    }
+
+    return result;
+}
+
+auto GenerateCookie(
+    const RotatingSecret& rotating_secret,
+    const std::string& sender_ip,
+    std::uint16_t sender_port
+) -> std::optional<Cookie>
+{
+    // Build sender_ip_bytes || port
+    std::vector<std::uint8_t> data;
+
+    // Try IPv4 first
+    struct in_addr ipv4{};
+    struct in6_addr ipv6{};
+
+    if (inet_pton(AF_INET, sender_ip.c_str(), &ipv4) == 1) {
+        // IPv4: 4 bytes IP + 2 bytes port
+        data.resize(6);
+        std::memcpy(data.data(), &ipv4, 4);
+        data[4] = static_cast<std::uint8_t>(sender_port >> 8);
+        data[5] = static_cast<std::uint8_t>(sender_port & 0xFF);
+    } else if (inet_pton(AF_INET6, sender_ip.c_str(), &ipv6) == 1) {
+        // IPv6: first 8 bytes (/64 prefix) + 2 bytes port
+        data.resize(10);
+        std::memcpy(data.data(), &ipv6, 8);
+        data[8] = static_cast<std::uint8_t>(sender_port >> 8);
+        data[9] = static_cast<std::uint8_t>(sender_port & 0xFF);
+    } else {
+        Logger::Error("Handshake: GenerateCookie invalid IP address");
+        return std::nullopt;
+    }
+
+    // cookie = BLAKE3-128(key=rotating_secret, data=sender_ip_bytes)
+    auto hash = KeyedHash256(
+        std::span<const std::uint8_t, 32>(rotating_secret.data(), 32),
+        ConstByteSpan{data.data(), data.size()}
+    );
+
+    if (!hash) {
+        Logger::Error("Handshake: GenerateCookie BLAKE3 failed");
+        return std::nullopt;
+    }
+
+    // Truncate to 16 bytes
+    Cookie cookie;
+    std::memcpy(cookie.data(), hash->data(), 16);
+    return cookie;
+}
+
+auto BuildCookieReply(
+    std::uint32_t receiver_index,
+    const Cookie& cookie,
+    const Blake3Hash& cookie_key,
+    std::span<const std::uint8_t, 16> mac1
+) -> std::optional<CookieReply>
+{
+    namespace aead = core::cryptography::chacha20_poly1305;
+
+    // Generate random 12-byte nonce
+    auto nonce_opt = aead::GenerateNonce();
+    if (!nonce_opt) {
+        Logger::Error("Handshake: BuildCookieReply failed to generate nonce");
+        return std::nullopt;
+    }
+
+    // Reinterpret cookie_key as ChaCha20 key
+    aead::Key aead_key{};
+    std::copy(cookie_key.begin(), cookie_key.end(), aead_key.begin());
+
+    // Encrypt cookie with mac1 as AAD
+    auto result = aead::Encrypt(
+        ConstByteSpan{cookie.data(), cookie.size()},
+        aead_key,
+        *nonce_opt,
+        ConstByteSpan{mac1.data(), mac1.size()}
+    );
+
+    if (!result) {
+        Logger::Error("Handshake: BuildCookieReply encryption failed");
+        return std::nullopt;
+    }
+
+    CookieReply reply;
+    reply.receiver_index = receiver_index;
+    reply.nonce = *nonce_opt;
+
+    // Pack ciphertext || tag into encrypted_cookie
+    std::memcpy(reply.encrypted_cookie.data(), result->ciphertext.data(), 16);
+    std::memcpy(reply.encrypted_cookie.data() + 16, result->tag.data(), 16);
+
+    return reply;
+}
+
+auto DecryptCookieReply(
+    const CookieReply& reply,
+    const Blake3Hash& cookie_key,
+    std::span<const std::uint8_t, 16> last_mac1_sent
+) -> std::optional<Cookie>
+{
+    namespace aead = core::cryptography::chacha20_poly1305;
+
+    aead::Key aead_key{};
+    std::copy(cookie_key.begin(), cookie_key.end(), aead_key.begin());
+
+    // Split ciphertext and tag from encrypted_cookie
+    ConstByteSpan ct{reply.encrypted_cookie.data(), 16};
+    aead::Tag tag{};
+    std::memcpy(tag.data(), reply.encrypted_cookie.data() + 16, 16);
+
+    auto plaintext = aead::Decrypt(
+        ct,
+        tag,
+        aead_key,
+        reply.nonce,
+        ConstByteSpan{last_mac1_sent.data(), last_mac1_sent.size()}
+    );
+
+    if (!plaintext) {
+        Logger::Error("Handshake: DecryptCookieReply decryption failed");
+        return std::nullopt;
+    }
+
+    Cookie cookie;
+    std::memcpy(cookie.data(), plaintext->data(), 16);
+    return cookie;
+}
+
+auto ComputeMac2(
+    const Cookie& cookie,
+    ConstByteSpan message_before_mac2
+) -> std::optional<std::array<std::uint8_t, 16>>
+{
+    // mac2 = BLAKE3-128(key=cookie, data=message_bytes_before_mac2)
+    auto hash = KeyedHash256(
+        std::span<const std::uint8_t, 32>(
+            // Pad cookie to 32 bytes for BLAKE3 key
+            [&]() -> std::array<std::uint8_t, 32> {
+                std::array<std::uint8_t, 32> key{};
+                std::memcpy(key.data(), cookie.data(), 16);
+                return key;
+            }().data(), 32),
+        message_before_mac2
+    );
+
+    if (!hash) {
+        Logger::Error("Handshake: ComputeMac2 failed");
+        return std::nullopt;
+    }
+
+    std::array<std::uint8_t, 16> mac2;
+    std::memcpy(mac2.data(), hash->data(), 16);
+    return mac2;
+}
+
+auto VerifyMac2(
+    const Cookie& cookie,
+    ConstByteSpan message_before_mac2,
+    std::span<const std::uint8_t, 16> received_mac2
+) -> bool
+{
+    auto expected = ComputeMac2(cookie, message_before_mac2);
+    if (!expected) {
+        Logger::Error("Handshake: VerifyMac2 failed to compute expected MAC");
+        return false;
+    }
+
+    // Constant time comparison
+    int diff = 0;
+    for (std::size_t i = 0; i < 16; i++) {
+        diff |= expected->at(i) ^ received_mac2[i];
     }
 
     return diff == 0;
