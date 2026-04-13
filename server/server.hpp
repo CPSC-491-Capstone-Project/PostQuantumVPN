@@ -56,7 +56,7 @@ namespace server {
         /// Returns false if Init() has not succeeded or if already running.
         bool Run();
  
-        /// Signals the event loop to stop. Non-blocking — returns immediately.
+        /// Signals the event loop to stop. Non-blocking - returns immediately.
         void Stop();
  
         /// Blocks until the background thread has joined, then closes the
@@ -90,6 +90,7 @@ namespace server {
  
         std::atomic<bool> running_{false};
         bool initialized_{false};
+        bool stopped_{false};
         std::thread worker_thread_{};
 
 

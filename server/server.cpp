@@ -6,6 +6,8 @@
 
 
 namespace server {
+
+    using core::utils::Logger;
  
     // =========================================================================
     // Lifecycle
@@ -83,7 +85,7 @@ namespace server {
         }
  
         initialized_ = true;
-        Logger::Info("Server: Initialized on " + bind_str + ":" + std::to_string(port_));
+        Logger::Info("Server: Initialized on " + bind_ip_.ToString() + ":" + std::to_string(port_));
         return true;
     }
  
@@ -96,32 +98,39 @@ namespace server {
             Logger::Error("Server: Run called before successful Init");
             return false;
         }
- 
+
+        if (stopped_) {
+            Logger::Warning("Server: Run called after Stop");
+            return false;
+        }
+
         if (running_.load(std::memory_order_relaxed)) {
             Logger::Warning("Server: Run called while already running");
             return false;
         }
- 
+
         running_.store(true, std::memory_order_relaxed);
         worker_thread_ = std::thread(&Server::EventLoop, this);
         Logger::Info("Server: Event loop started");
         return true;
     }
- 
+
     void Server::Stop() {
+        stopped_ = true;
         running_.store(false, std::memory_order_relaxed);
         Logger::Info("Server: Stop requested");
     }
  
     void Server::Shutdown() {
         Stop();
- 
+
         if (worker_thread_.joinable()) {
             worker_thread_.join();
         }
- 
+
         CleanupResources();
         initialized_ = false;
+        stopped_ = false;
         Logger::Info("Server: Shutdown complete");
     }
  
@@ -230,7 +239,7 @@ namespace server {
     // =========================================================================
  
     std::string Server::FormatEndpoint(const Endpoint& ep) {
-        return ep.ip + ":" + std::to_string(ep.port);
+        return ep.ip.ToString() + ":" + std::to_string(ep.port);
     }
  
     void Server::CleanupResources() {
