@@ -14,7 +14,17 @@
 
 namespace server {
 
-    using namespace core::network;
+    using core::network::EventMask;
+    using core::network::PollEvent;
+    using core::network::Endpoint;
+    using core::network::EventPoller;
+    using core::network::UDPSocket;
+    using core::network::IPv4;
+    using core::network::Data;
+    using core::network::ConstData;
+    using core::network::Port;
+
+    using core::handshake::MessageType;
 
     class Server {
     public:
@@ -91,10 +101,10 @@ namespace server {
         // -----------------------------------------------------------------
         // Message handlers
         // -----------------------------------------------------------------
-        void HandleInitiation(Data data, const Endpoint& sender);
-        void HandleResponse(Data data, const Endpoint& sender);
-        void HandleCookie(Data data, const Endpoint& sender);
-        void HandleTransport(Data data,const Endpoint& sender);
+        void HandleInitiation(ConstData data, const Endpoint& sender);
+        void HandleResponse(ConstData data, const Endpoint& sender);
+        void HandleCookie(ConstData data, const Endpoint& sender);
+        void HandleTransport(ConstData data,const Endpoint& sender);
 
         /// Called once per poll iteration for periodic housekeeping
         void TimerTick();
