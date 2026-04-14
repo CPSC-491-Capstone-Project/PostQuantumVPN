@@ -12,6 +12,7 @@ using core::network::EventPoller;
 using core::network::EventMask;
 using core::network::PollEvent;
 using core::network::Handle;
+using core::utils::Logger;
 
 static volatile bool g_running = true;
 
