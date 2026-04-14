@@ -277,6 +277,24 @@ int main(int argc, char* argv[]) {
     //Run(UDPSocketTest_ExternalDNSQuery,    "UDPSocket: 8.8.8.8:53 DNS query"); // This appears to be blocked on the Fullerton Network
 
     // =============================================================================
+    // IPv4 Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(IPv4Test_DefaultIsZero,            "IPv4: default is 0.0.0.0");
+    Run(IPv4Test_FromOctets,               "IPv4: construct from octets");
+    Run(IPv4Test_FromUint32,               "IPv4: construct from uint32");
+    Run(IPv4Test_FromString_Valid,          "IPv4: construct from string");
+    Run(IPv4Test_FromString_Malformed,      "IPv4: malformed string");
+    Run(IPv4Test_Roundtrip_OctetsToString,  "IPv4: octets -> string");
+    Run(IPv4Test_Roundtrip_StringToOctets,  "IPv4: string -> octets");
+    Run(IPv4Test_NetworkOrder,              "IPv4: network byte order");
+    Run(IPv4Test_HostNetworkRoundtrip,      "IPv4: host <-> network roundtrip");
+    Run(IPv4Test_Equality,                  "IPv4: equality");
+    Run(IPv4Test_Ordering,                  "IPv4: ordering");
+    Run(IPv4Test_Constants,                 "IPv4: consteval constants");
+    Run(IPv4Test_FullyConstexpr,            "IPv4: fully constexpr chain");
+
+    // =============================================================================
     // BLAKE3 Tests
     // =============================================================================
     std::cout << "\n";

@@ -148,6 +148,23 @@ bool UDPSocketTest_Loopback_1KB();
 bool UDPSocketTest_ExternalDNSQuery();
 
 // =============================================================================
+// IPv4 Tests
+// =============================================================================
+bool IPv4Test_DefaultIsZero();
+bool IPv4Test_FromOctets();
+bool IPv4Test_FromUint32();
+bool IPv4Test_FromString_Valid();
+bool IPv4Test_FromString_Malformed();
+bool IPv4Test_Roundtrip_OctetsToString();
+bool IPv4Test_Roundtrip_StringToOctets();
+bool IPv4Test_NetworkOrder();
+bool IPv4Test_HostNetworkRoundtrip();
+bool IPv4Test_Equality();
+bool IPv4Test_Ordering();
+bool IPv4Test_Constants();
+bool IPv4Test_FullyConstexpr();
+
+// =============================================================================
 // BLAKE3 Tests
 // =============================================================================
 bool Blake3Test_Hash256_Succeeds();
