@@ -2,6 +2,8 @@
 #define _PQVPN_CORE_HANDSHAKE_INDEX_TABLE_HPP_
 
 #include "handshake_state.hpp"
+#include "keypair.hpp"
+#include "peer.hpp"
 #include "siphash.hpp"
 #include "chacha20_poly1305.hpp"
 #include <cstdint>
@@ -11,10 +13,6 @@
 #include <mutex>
 
 namespace core::handshake {
-
-// Forward declarations - defined by peer and session modules
-struct Peer;
-struct Keypair;
 
 struct IndexTableEntry {
     Peer*           peer{nullptr};
