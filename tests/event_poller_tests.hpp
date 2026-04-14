@@ -30,11 +30,11 @@ bool EventPollerTest_FullLifecycle() {
     UDPSocket sock_b;
 
     if (!sock_a.Open())                     { Logger::Error("EPTest1: sock_a Open failed"); return false; }
-    if (!sock_a.Bind(IPv4::Loopback(), 0))  { Logger::Error("EPTest1: sock_a Bind failed"); return false; }
+    if (!sock_a.Bind("127.0.0.1", 0))       { Logger::Error("EPTest1: sock_a Bind failed"); return false; }
     if (!sock_a.SetNonBlocking())           { Logger::Error("EPTest1: sock_a SetNonBlocking failed"); return false; }
 
     if (!sock_b.Open())                     { Logger::Error("EPTest1: sock_b Open failed"); return false; }
-    if (!sock_b.Bind(IPv4::Loopback(), 0))  { Logger::Error("EPTest1: sock_b Bind failed"); return false; }
+    if (!sock_b.Bind("127.0.0.1", 0))       { Logger::Error("EPTest1: sock_b Bind failed"); return false; }
     if (!sock_b.SetNonBlocking())           { Logger::Error("EPTest1: sock_b SetNonBlocking failed"); return false; }
 
     const Handle handle_a = sock_a.GetHandle();
@@ -61,7 +61,7 @@ bool EventPollerTest_FullLifecycle() {
 
     // 4. Send data A -> B, poll for readable on B
     std::vector<std::uint8_t> payload = {0xCA, 0xFE, 0xBA, 0xBE};
-    BytesTransferred sent = sock_a.SendTo({IPv4::Loopback(), port_b}, payload);
+    BytesTransferred sent = sock_a.SendTo({"127.0.0.1", port_b}, payload);
     if (sent != 4) { Logger::Error("EPTest1: SendTo A->B failed"); return false; }
 
     count = poller.Poll(events, /*timeout_ms=*/500);
@@ -105,7 +105,7 @@ bool EventPollerTest_FullLifecycle() {
 
     // 7. Send reply B -> A using the writable event
     std::vector<std::uint8_t> reply = {0xDE, 0xAD};
-    sent = sock_b.SendTo({IPv4::Loopback(), port_a}, reply);
+    sent = sock_b.SendTo({"127.0.0.1", port_a}, reply);
     if (sent != 2) { Logger::Error("EPTest1: SendTo B->A failed"); return false; }
 
     // Modify back to Readable only (stop the writable spin)
@@ -139,7 +139,7 @@ bool EventPollerTest_FullLifecycle() {
     if (!poller.Remove(handle_b)) { Logger::Error("EPTest1: Remove handle_b failed"); return false; }
 
     // After removal, poll should return 0 even with data pending
-    sock_a.SendTo({IPv4::Loopback(), port_b}, payload);
+    sock_a.SendTo({"127.0.0.1", port_b}, payload);
     count = poller.Poll(events, /*timeout_ms=*/50);
     if (count != 0) { Logger::Error("EPTest1: expected 0 events after Remove, got " + std::to_string(count)); return false; }
 
@@ -162,11 +162,11 @@ bool EventPollerTest_TwoPollersAndMoveSemantics() {
     UDPSocket sock_b;
 
     if (!sock_a.Open())                     { Logger::Error("EPTest2: sock_a Open failed"); return false; }
-    if (!sock_a.Bind(IPv4::Loopback(), 0))      { Logger::Error("EPTest2: sock_a Bind failed"); return false; }
+    if (!sock_a.Bind("127.0.0.1", 0))      { Logger::Error("EPTest2: sock_a Bind failed"); return false; }
     if (!sock_a.SetNonBlocking())           { Logger::Error("EPTest2: sock_a SetNonBlocking failed"); return false; }
 
     if (!sock_b.Open())                     { Logger::Error("EPTest2: sock_b Open failed"); return false; }
-    if (!sock_b.Bind(IPv4::Loopback(), 0))      { Logger::Error("EPTest2: sock_b Bind failed"); return false; }
+    if (!sock_b.Bind("127.0.0.1", 0))      { Logger::Error("EPTest2: sock_b Bind failed"); return false; }
     if (!sock_b.SetNonBlocking())           { Logger::Error("EPTest2: sock_b SetNonBlocking failed"); return false; }
 
     const Handle handle_a = sock_a.GetHandle();
@@ -196,7 +196,7 @@ bool EventPollerTest_TwoPollersAndMoveSemantics() {
 
     // 3. Verify poller_c still works: send data and poll
     std::vector<std::uint8_t> msg1 = {0x01, 0x02, 0x03};
-    sock_b.SendTo({IPv4::Loopback(), port_a}, msg1);
+    sock_b.SendTo({"127.0.0.1", port_a}, msg1);
 
     std::array<PollEvent, 4> events{};
     int count = poller_c.Poll(events, /*timeout_ms=*/500);
@@ -219,7 +219,7 @@ bool EventPollerTest_TwoPollersAndMoveSemantics() {
 
     // 5. Verify poller_c now monitors sock_b (not sock_a)
     std::vector<std::uint8_t> msg2 = {0xAA, 0xBB};
-    sock_a.SendTo({IPv4::Loopback(), port_b}, msg2);
+    sock_a.SendTo({"127.0.0.1", port_b}, msg2);
 
     count = poller_c.Poll(events, /*timeout_ms=*/500);
     if (count < 1) { Logger::Error("EPTest2: poller_c poll failed after move-assign"); return false; }
@@ -260,7 +260,7 @@ bool EventPollerTest_OperationsOnClosedPoller() {
 
     UDPSocket sock;
     if (!sock.Open())                   { Logger::Error("event_poller_test: sock Open failed"); return false; }
-    if (!sock.Bind(IPv4::Loopback(), 0))    { Logger::Error("event_poller_test: sock Bind failed"); return false; }
+    if (!sock.Bind("127.0.0.1", 0))    { Logger::Error("event_poller_test: sock Bind failed"); return false; }
 
     const Handle sock_handle = sock.GetHandle();
 

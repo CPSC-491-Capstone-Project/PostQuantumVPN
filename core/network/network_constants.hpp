@@ -7,7 +7,6 @@
 namespace core::network {
 
     using Handle = std::int32_t;
-    using Port = std::uint16_t;
     inline constexpr Handle kInvalidHandle = -1;
 
     // KB
