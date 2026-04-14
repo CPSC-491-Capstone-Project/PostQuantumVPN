@@ -31,7 +31,7 @@ static void HandleInbound() {
 }
 
 static void HandleOutbound() {
-    static uint8_t buf[65536];
+    static uint8_t buf[65536*2]; // Must be large enough
 
     const int len_recv = OutboundTraffic_Read(buf, sizeof(buf));
     if (len_recv < 0) {
