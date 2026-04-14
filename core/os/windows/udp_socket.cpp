@@ -68,7 +68,7 @@ namespace core::network {
         addr.sin_family = AF_INET;
         addr.sin_port   = htons(port);
 
-        if (inet_pton(AF_INET, ip.ToString().c_str(), &addr.sin_addr) != 1) {
+        if (::inet_pton(AF_INET, ip.ToString().c_str(), &addr.sin_addr) != 1) {
             Logger::Error("UDPSocket: Invalid bind address: " + ip.ToString());
             return false;
         }
@@ -114,7 +114,7 @@ namespace core::network {
         addr.sin_family = AF_INET;
         addr.sin_port   = htons(destination.port);
 
-        if (inet_pton(AF_INET, destination.ip.ToString().c_str(), &addr.sin_addr) != 1) {
+        if (::inet_pton(AF_INET, destination.ip.ToString().c_str(), &addr.sin_addr) != 1) {
             Logger::Error("UDPSocket: Invalid destination address: " + destination.ip.ToString());
             return -1;
         }
@@ -159,13 +159,13 @@ namespace core::network {
             return std::nullopt;
         }
 
-        char ip_buf[INET_ADDRSTRLEN]{};
-        inet_ntop(AF_INET, &addr.sin_addr, ip_buf, sizeof(ip_buf));
+        char ip_buffer[INET_ADDRSTRLEN]{};
+        ::inet_ntop(AF_INET, &addr.sin_addr, ip_buffer, sizeof(ip_buffer));
 
         return ReceiveResult{
             .bytes_read = static_cast<std::size_t>(received),
             .sender = Endpoint{
-                .ip   = IPv4(std::string(ip_buf)),
+                .ip   = IPv4(std::string(ip_buffer)),
                 .port = ntohs(addr.sin_port)
             }
         };
@@ -185,11 +185,11 @@ namespace core::network {
             return std::nullopt;
         }
 
-        char ip_buf[INET_ADDRSTRLEN]{};
-        inet_ntop(AF_INET, &addr.sin_addr, ip_buf, sizeof(ip_buf));
+        char ip_buffer[INET_ADDRSTRLEN]{};
+        ::inet_ntop(AF_INET, &addr.sin_addr, ip_buffer, sizeof(ip_buffer));
 
         return Endpoint{
-            .ip   = IPv4(std::string(ip_buf)),
+            .ip   = IPv4(std::string(ip_buffer)),
             .port = ntohs(addr.sin_port)
         };
     }
