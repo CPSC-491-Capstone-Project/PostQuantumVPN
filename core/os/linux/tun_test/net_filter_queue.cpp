@@ -27,7 +27,6 @@ static int on_inbound(struct nfq_q_handle* qh, struct nfgenmsg*, struct nfq_data
 int nfq_deliver(struct nfq_packet* packet) {
     // NF_ACCEPT delivers the packet to the local socket
     return nfq_set_verdict(packet->queue_handler, packet->packet_id, NF_ACCEPT, packet->data_len, packet->data);
-
 }
 
 int nfq_init(struct nfq_state* nfq_state, int queue_id, void* callback)

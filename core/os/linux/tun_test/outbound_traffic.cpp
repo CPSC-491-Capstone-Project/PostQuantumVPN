@@ -2,6 +2,8 @@
 
 #include <cstddef>
 
+using core::utils::Logger;
+
 static int outbound_injection_fd = -1;
 static int outbound_interception_fd = -1;
 
@@ -12,13 +14,26 @@ static int outbound_interception_fd = -1;
 // so the packet goes out through the physical interface instead of looping back to tun0.
 static int open_raw_socket() {
     int fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
-    if (fd < 0) { perror("socket SOCK_RAW"); return -1; }
+    if (fd < 0) {
+        Logger::Error("OutboundTraffic: Unable to open socket");
+        return -1;
+    }
 
+    // Provides the full IP header.
     int one = 1;
-    setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one));
+    int ret = setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one));
+    if (ret < 0) {
+        Logger::Error("OutboundTraffic: Unable to set socket option: IP_HDRINCL");
+        return -1;
+    }
 
+    // Firewall mark to mark packets as processed by application.
     int mark = 1;
-    setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark));
+    ret = setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark));
+    if (ret < 0) {
+        Logger::Error("OutboundTraffic: Unable to set socket option: SO_MARK");
+        return -1;
+    }
 
     return fd;
 }
@@ -52,16 +67,17 @@ int OutboundTraffic_Init()
 {
     int injection_fd = open_raw_socket();
     if (injection_fd < 0) {
+        Logger::Error("OutboundTraffic: Unable to open outbound traffic injection socket.");
+        return -1;
+    }
+
+    int tun_fd  = open_tun("tun0");
+    if (tun_fd < 0) {
+        Logger::Error("OutboundTraffic: Unable to open tunnel socket.");
         return -1;
     }
 
     outbound_injection_fd = injection_fd;
-
-    int tun_fd  = open_tun("tun0");
-    if (tun_fd < 0) {
-        return -1;
-    }
-
     outbound_interception_fd = tun_fd;
 
     return tun_fd;
