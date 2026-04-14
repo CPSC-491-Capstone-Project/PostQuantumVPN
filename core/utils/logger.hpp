@@ -21,19 +21,19 @@ namespace core::utils {
 
         static Logger& getInstance();
 
-        void init(const std::string& filename);
-        void init(std::ostream& os);
-        void log(LogLevel, const std::string& message);
-        void setLogLevel(LogLevel level);
+        Logger& init(const std::string& filename);
+        Logger& init(std::ostream& os);
+        Logger& log(LogLevel, const std::string& message);
+        Logger& setLogLevel(LogLevel level);
 
-        static void Emergency(const std::string& msg) { getInstance().log(LogLevel::EMERGENCY, msg); std::terminate(); }
-        static void Alert(const std::string& msg)     { getInstance().log(LogLevel::ALERT, msg); }
-        static void Critical(const std::string& msg)  { getInstance().log(LogLevel::CRITICAL, msg); }
-        static void Error(const std::string& msg)     { getInstance().log(LogLevel::ERROR, msg); }
-        static void Warning(const std::string& msg)   { getInstance().log(LogLevel::WARNING, msg); }
-        static void Notice(const std::string& msg)    { getInstance().log(LogLevel::NOTICE, msg); }
-        static void Info(const std::string& msg)      { getInstance().log(LogLevel::INFO, msg); }
-        static void Debug(const std::string& msg)     { getInstance().log(LogLevel::DEBUG, msg); }
+        static Logger& Emergency(const std::string& msg) { return getInstance().log(LogLevel::EMERGENCY, msg); }
+        static Logger& Alert(const std::string& msg)     { return getInstance().log(LogLevel::ALERT, msg); }
+        static Logger& Critical(const std::string& msg)  { return getInstance().log(LogLevel::CRITICAL, msg); }
+        static Logger& Error(const std::string& msg)     { return getInstance().log(LogLevel::ERROR, msg); }
+        static Logger& Warning(const std::string& msg)   { return getInstance().log(LogLevel::WARNING, msg); }
+        static Logger& Notice(const std::string& msg)    { return getInstance().log(LogLevel::NOTICE, msg); }
+        static Logger& Info(const std::string& msg)      { return getInstance().log(LogLevel::INFO, msg); }
+        static Logger& Debug(const std::string& msg)     { return getInstance().log(LogLevel::DEBUG, msg); }
 
 
     private:

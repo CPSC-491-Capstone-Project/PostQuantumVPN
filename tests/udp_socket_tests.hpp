@@ -32,7 +32,7 @@ bool UDPSocketTest_OpenClose() {
 bool UDPSocketTest_Bind() {
     UDPSocket sock;
     if (!sock.Open()) return false;
-    if (!sock.Bind("127.0.0.1", 0)) return false;
+    if (!sock.Bind(IPv4::Loopback(), 0)) return false;
     return BoundPort(sock) != 0;
 }
 
@@ -41,10 +41,10 @@ bool UDPSocketTest_SendToReceiveFrom() {
     UDPSocket receiver;
     sender.Open();
     receiver.Open();
-    receiver.Bind("127.0.0.1", 0);
+    receiver.Bind(IPv4::Loopback(), 0);
 
     std::vector<std::uint8_t> message = {0xDE, 0xAD, 0xBE, 0xEF};
-    Endpoint dst{"127.0.0.1", BoundPort(receiver)};
+    Endpoint dst{IPv4::Loopback(), BoundPort(receiver)};
 
     BytesTransferred sent = sender.SendTo(dst, message);
     if (sent != 4) return false;
@@ -61,18 +61,18 @@ bool UDPSocketTest_Loopback_SenderInfo() {
     UDPSocket sender;
     UDPSocket receiver;
     sender.Open();
-    sender.Bind("127.0.0.1", 0);
+    sender.Bind(IPv4::Loopback(), 0);
     receiver.Open();
-    receiver.Bind("127.0.0.1", 0);
+    receiver.Bind(IPv4::Loopback(), 0);
 
     std::vector<std::uint8_t> message = {0x01};
-    sender.SendTo({"127.0.0.1", BoundPort(receiver)}, message);
+    sender.SendTo({IPv4::Loopback(), BoundPort(receiver)}, message);
 
     std::vector<std::uint8_t> buf(64);
     auto result = receiver.ReceiveFrom(buf);
     if (!result) return false;
 
-    return result->sender.ip == "127.0.0.1"
+    return result->sender.ip == IPv4::Loopback()
         && result->sender.port == BoundPort(sender);
 }
 
@@ -81,14 +81,14 @@ bool UDPSocketTest_Loopback_1KB() {
     UDPSocket receiver;
     sender.Open();
     receiver.Open();
-    receiver.Bind("127.0.0.1", 0);
+    receiver.Bind(IPv4::Loopback(), 0);
 
     std::vector<std::uint8_t> message(1024);
     for (std::size_t i = 0; i < message.size(); ++i) {
         message[i] = static_cast<std::uint8_t>(i & 0xFF);
     }
 
-    Endpoint dst{"127.0.0.1", BoundPort(receiver)};
+    Endpoint dst{IPv4::Loopback(), BoundPort(receiver)};
     if (sender.SendTo(dst, message) != 1024) return false;
 
     std::vector<std::uint8_t> buf(2048);
@@ -102,7 +102,7 @@ bool UDPSocketTest_Loopback_1KB() {
 bool UDPSocketTest_ExternalDNSQuery() {
     UDPSocket sock;
     if (!sock.Open()) return false;
-    if (!sock.Bind("0.0.0.0", 0)) return false;
+    if (!sock.Bind(IPv4::Any(), 0)) return false;
 
     // Header: ID=0x1234, flags=0x0100 (standard query, recursion desired)
     // QDCOUNT=1, ANCOUNT=0, NSCOUNT=0, ARCOUNT=0
@@ -122,7 +122,7 @@ bool UDPSocketTest_ExternalDNSQuery() {
         0x00, 0x01   // Class: IN
     };
 
-    Endpoint dns_server{"8.8.8.8", 53};
+    Endpoint dns_server{IPv4(8, 8, 8, 8), 53};
     BytesTransferred sent = sock.SendTo(dns_server, dns_query);
     if (sent != static_cast<BytesTransferred>(dns_query.size())) return false;
 
