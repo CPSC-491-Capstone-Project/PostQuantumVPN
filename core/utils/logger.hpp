@@ -25,7 +25,7 @@ namespace core::utils {
         void log(LogLevel, const std::string& message);
         void setLogLevel(LogLevel level);
 
-        static void Emergency(const std::string& msg) { getInstance().log(LogLevel::EMERGENCY, msg); }
+        static void Emergency(const std::string& msg) { getInstance().log(LogLevel::EMERGENCY, msg); std::terminate(); }
         static void Alert(const std::string& msg)     { getInstance().log(LogLevel::ALERT, msg); }
         static void Critical(const std::string& msg)  { getInstance().log(LogLevel::CRITICAL, msg); }
         static void Error(const std::string& msg)     { getInstance().log(LogLevel::ERROR, msg); }

@@ -10,12 +10,18 @@ namespace core::utils {
 
     void Logger::init(const std::string& filename) {
         std::scoped_lock<std::mutex> lock(mutex_);
+        if (logFile_.is_open()) {
+            logFile_.close();
+        }
         logFile_.open(filename);
         stream_ = &logFile_;
     }
 
     void Logger::init(std::ostream& os) {
         std::scoped_lock<std::mutex> lock(mutex_);
+        if (logFile_.is_open()) {
+            logFile_.close();
+        }
         stream_ = &os;
     }
 

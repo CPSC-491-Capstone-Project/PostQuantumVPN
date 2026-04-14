@@ -1,6 +1,7 @@
 #ifndef _PQVPN_CORE_UTILS_BIT_UTILS_HPP_
 #define _PQVPN_CORE_UTILS_BIT_UTILS_HPP_
 
+#include <bit>
 #include <cstdint>
 #include <span>
 #include <cstring>
@@ -9,11 +10,24 @@
 
 namespace core::utils {
 
+    using ByteSpan = std::span<std::uint8_t>;
+    using ConstByteSpan = std::span<const std::uint8_t>;
+
+    // Non-cryptographic, fast hashing function
+    [[nodiscard]] static constexpr std::uint64_t Fnv1a(ConstByteSpan data) {
+        auto hash = std::uint64_t{14695981039346656037ULL};
+        for (auto i{0uz}; i < data.size(); ++i) {
+            hash ^= static_cast<std::uint64_t>(data[i]);
+            hash *= std::uint64_t{1099511628211ULL};
+        }
+        return hash;
+    }
+
     // Converts a bit array (of length that is a multiple of eight) into an array of bytes.
-    void BitsToBytes(std::span<const uint8_t> bits, std::span<uint8_t> bytes);
+    void BitsToBytes(ConstByteSpan bits, ByteSpan bytes);
 
     // Performs the inverse of BitsToBytes, converting a byte array into a bit array.
-    void BytesToBits(std::span<const uint8_t> bytes, std::span<uint8_t> bits);
+    void BytesToBits(ConstByteSpan bytes, ByteSpan bits);
 
     // Reads a 64-bit value from a byte buffer in little-endian order.
     inline uint64_t load64_le(const uint8_t *src) {

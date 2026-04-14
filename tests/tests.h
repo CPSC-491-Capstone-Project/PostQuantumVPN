@@ -3,6 +3,7 @@
 
 #include <string_view>
 #include <iostream>
+#include <functional>
 
 // =============================================================================
 // Logger Tests
@@ -24,7 +25,6 @@ bool LoggerTest_LogEvent_TimestampBreaksTie();
 // =============================================================================
 // Random Tests
 // =============================================================================
-
 bool RandomTest_SingletonInit();
 bool RandomTest_ZeroBytes();
 bool RandomTest_OneByte();
@@ -67,27 +67,19 @@ bool MlKemTest_SharedSecretSize();
 bool MlKemTest_EncapsulateUniqueness();
 bool MlKemTest_WrongKeyImplicitRejection();
 
-
 // =============================================================================
 // ChaCha20-Poly1305 Tests
 // =============================================================================
-
-// Key / Nonce generation
 bool ChaCha20Test_GenerateKey_Succeeds();
 bool ChaCha20Test_GenerateKey_Unique();
 bool ChaCha20Test_GenerateNonce_Succeeds();
 bool ChaCha20Test_GenerateNonce_Unique();
-
-// Encrypt
 bool ChaCha20Test_Encrypt_Succeeds();
 bool ChaCha20Test_Encrypt_CiphertextLength();
 bool ChaCha20Test_Encrypt_CiphertextDiffers();
-bool ChaCha20Test_Encrypt_EmptyPlaintext();
 bool ChaCha20Test_Encrypt_Deterministic();
 bool ChaCha20Test_Encrypt_DifferentNonce();
 bool ChaCha20Test_Encrypt_DifferentKey();
-
-// Decrypt / Roundtrip
 bool ChaCha20Test_Roundtrip_Basic();
 bool ChaCha20Test_Roundtrip_WithAAD();
 bool ChaCha20Test_Roundtrip_4KB();
@@ -95,8 +87,6 @@ bool ChaCha20Test_Roundtrip_4MB();
 bool ChaCha20Test_Roundtrip_1GB();
 bool ChaCha20Test_Roundtrip_SingleByte();
 bool ChaCha20Test_Decrypt_EmptyCiphertext();
-
-// Authentication failure
 bool ChaCha20Test_Auth_WrongKey();
 bool ChaCha20Test_Auth_WrongNonce();
 bool ChaCha20Test_Auth_TamperedCiphertext();
@@ -108,13 +98,23 @@ bool ChaCha20Test_Auth_SpuriousAAD();
 // =============================================================================
 // SipHash Tests
 // =============================================================================
-
-// SipHash-2-4 correctness
 bool SipHashTest_BlankKey_BlankInput();
 bool SipHashTest_BlankKey_NormalInput();
 bool SipHashTest_NormalKey_BlankInput();
 bool SipHashTest_NormalKey_NormalInput();
 bool SipHashTest_NormalKey_LargeInput();
+
+// =============================================================================
+// HKDF Tests
+// =============================================================================
+bool HkdfTest_Extract_OutputSize();
+bool HkdfTest_Extract_NotEmpty();
+bool HkdfTest_Expand_OutputSize();
+bool HkdfTest_DeriveKey_OutputSize();
+bool HkdfTest_DeriveKey_Deterministic();
+bool HkdfTest_DeriveKey_DifferentSalt();
+bool HkdfTest_DeriveKey_DifferentIKM();
+bool HkdfTest_Roundtrip_ExtractExpand_MatchesDeriveKey();
 
 // =============================================================================
 // X25519 Tests
@@ -136,9 +136,106 @@ bool X25519Test_DeriveSharedSecret_Deterministic();
 bool X25519Test_DeriveSharedSecret_DifferentPeerGivesDifferentSecret();
 bool X25519Test_DeriveSharedSecret_WrongPrivateKey();
 bool X25519Test_DeriveSharedSecret_ThreePartyIndependent();
+
+// =============================================================================
+// UDP Socket Tests
+// =============================================================================
+bool UDPSocketTest_OpenClose();
+bool UDPSocketTest_Bind();
+bool UDPSocketTest_SendToReceiveFrom();
+bool UDPSocketTest_Loopback_SenderInfo();
+bool UDPSocketTest_Loopback_1KB();
+bool UDPSocketTest_ExternalDNSQuery();
+
+// =============================================================================
+// BLAKE3 Tests
+// =============================================================================
+bool Blake3Test_Hash256_Succeeds();
+bool Blake3Test_Hash256_OutputSize();
+bool Blake3Test_Hash256_EmptyInput();
+bool Blake3Test_Hash256_Deterministic();
+bool Blake3Test_Hash256_DifferentInputs();
+bool Blake3Test_Hash256_DiffersFromInput();
+bool Blake3Test_Hash256_SingleByte();
+bool Blake3Test_Hash256_1MB();
+bool Blake3Test_Hash256_AvalancheEffect();
+bool Blake3Test_Hash256_KnownAnswer_Abc();
+bool Blake3Test_HashXof_MatchesHash256AtDefaultLen();
+bool Blake3Test_HashXof_OutputSize();
+bool Blake3Test_HashXof_ZeroOutputLen();
+bool Blake3Test_HashXof_EmptyInput();
+bool Blake3Test_HashXof_Deterministic();
+bool Blake3Test_HashXof_PrefixConsistency();
+
+// =============================================================================
+// Event Poller Tests
+// =============================================================================
+bool EventPollerTest_FullLifecycle();
+bool EventPollerTest_TwoPollersAndMoveSemantics();
+bool EventPollerTest_OperationsOnClosedPoller();
+
+// =============================================================================
+// TAIN64 Tests
+// =============================================================================
+bool Tai64nTest_SingleThread_UniqueTimestamps();
+bool Tai64nTest_MT_AllUnique(std::function<void()> startTimer);
+bool Tai64nTest_MT_Throughput(std::function<void()> startTimer);
+
+// =============================================================================
+// Handshake Helpers Tests
+// =============================================================================
+// Mix Hash
+bool MixHashTest_SingleByte();
+bool MixHashTest_EmptyData();
+bool MixHashTest_Deterministic();
+bool MixHashTest_DifferentData();
+bool MixHashTest_DifferentStartingHash();
+bool MixHashTest_OrderMatters();
+bool MixHashTest_ConcatVsSequential();
+bool MixHashTest_KnownAnswer_ZeroHash_Abc();
+bool MixHashTest_KnownAnswer_ProtocolInitialHash();
+bool MixHashTest_LargeData();
+
+// KDF1
+bool KDF1Test_Succeeds();
+bool KDF1Test_Deterministic();
+bool KDF1Test_DifferentKey();
+bool KDF1Test_DifferentInput();
+bool KDF1Test_EmptyInput();
+bool KDF1Test_KnownAnswer();
+
+// KDF2
+bool KDF2Test_Succeeds_DistinctOutputs();
+bool KDF2Test_Deterministic();
+bool KDF2Test_T0MatchesKDF1();
+bool KDF2Test_EmptyInput();
+bool KDF2Test_DifferentKey();
+
+// KDF3
+bool KDF3Test_Succeeds_DistinctOutputs();
+bool KDF3Test_Deterministic();
+bool KDF3Test_T0T1MatchKDF2();
+bool KDF3Test_EmptyInput();
+bool KDF3Test_DifferentKey();
+
+// Encrypt and Decrypt
+bool EncryptAndHashTest_Roundtrip_Basic();
+bool EncryptAndHashTest_HashConvergence();
+bool EncryptAndHashTest_HashChanges();
+bool EncryptAndHashTest_OutputSize();
+bool EncryptAndHashTest_EmptyPlaintext();
+bool DecryptAndHashTest_TamperedCiphertext();
+bool DecryptAndHashTest_TamperedTag();
+bool DecryptAndHashTest_HashUnchangedOnFailure();
+bool DecryptAndHashTest_WrongKey();
+bool DecryptAndHashTest_InputTooShort();
+bool DecryptAndHashTest_MismatchedHash();
+bool EncryptAndHashTest_Deterministic();
+
 // =============================================================================
 // Future Test Categories
 // =============================================================================
+
 
 // =============================================================================
 // Helper Functions

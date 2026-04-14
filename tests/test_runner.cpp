@@ -2,10 +2,14 @@
 #include "timer.hpp"
 #include "logger.hpp"
 #include "x25519.hpp"
+#include "handshake_constants.hpp"
 
 #include <string_view>
 #include <iostream>
 #include <iomanip>
+#include <chrono>
+#include <sstream>
+#include <functional>
 
 using core::utils::Logger;
 
@@ -13,11 +17,16 @@ static int total_tests = 0;
 static int passed_tests = 0;
 static int failed_tests = 0;
 
+static std::string log_filename;
+
 static const char* GREEN = "\033[32m";
 static const char* RED = "\033[31m";
 static const char* CYAN = "\033[36m";
 static const char* RESET = "\033[0m";
 
+// =============================================================================
+// Run Function
+// =============================================================================
 void Run(bool (*test)(), std::string_view name) {
     total_tests++;
     core::utils::Timer timer;
@@ -36,16 +45,63 @@ void Run(bool (*test)(), std::string_view name) {
         std::cout << RED   << "[FAIL]" << RESET;
     }
 
-    std::cout << "  " << timer.ElapsedStr() << "\n";
+    // I decided we should flush after each test. That way if
+    // a test crashes the program, we can pinpoint which test did so.
+    // Plus we see results in real time
+    std::cout << "  " << timer.ElapsedStr() << std::endl;
 }
 
+// Overload that allows the test to start the timer. 
+// This allows the test function to do things like setup a thread pool
+// or create some resource without the resource creation being counted in the test time
+void Run(bool (*test)(std::function<void()>), std::string_view name) {
+    total_tests++;
+    core::utils::Timer timer;
+
+    std::cout << CYAN << "[TEST] " << RESET << std::left << std::setw(40) << name;
+
+    bool result = test([&timer] { timer.Start(); });
+    timer.Stop();
+
+    if (result) {
+        passed_tests++;
+        std::cout << GREEN << "[PASS]" << RESET;
+    } else {
+        failed_tests++;
+        std::cout << RED   << "[FAIL]" << RESET;
+    }
+
+    std::cout << "  " << timer.ElapsedStr() << std::endl;
+}
+
+// =============================================================================
+// Logger Related Functions
+// =============================================================================
+static std::string MakeLogFilename() {
+    auto now = std::chrono::system_clock::now();
+    auto time_t_val = std::chrono::system_clock::to_time_t(now);
+    std::ostringstream oss;
+    oss << "Test_Log_"
+        << std::put_time(std::localtime(&time_t_val), "%Y%m%d_%H%M%S")
+        << ".log";
+    return oss.str();
+}
+
+static void InitLoggerToFile() {
+    Logger::getInstance().init(log_filename);
+    Logger::getInstance().setLogLevel(core::utils::LogLevel::DEBUG);
+}
+
+// =============================================================================
+// Main Function
+// =============================================================================
 int main(int argc, char* argv[]) {
 
     (void)argc;
     (void)argv;
 
-    // Initialize the global logger as everything will need this
-    Logger::getInstance().init(std::cerr);
+    log_filename = MakeLogFilename();
+    InitLoggerToFile();
 
     std::cout << "========================================\n";
     std::cout << "Running Test Suite\n";
@@ -68,6 +124,10 @@ int main(int argc, char* argv[]) {
     Run(LoggerTest_SetLevel_ChangesMidStream,        "Logger: level change mid-stream");
     Run(LoggerTest_LogEvent_SeverityOrdering,        "LogEvent: severity ordering");
     Run(LoggerTest_LogEvent_TimestampBreaksTie,      "LogEvent: timestamp tiebreak");
+
+    // Reset the logger after running the Logger tests
+    // so that all other tests will output to the correct file
+    InitLoggerToFile();
 
     // =============================================================================
     // Random Tests
@@ -132,7 +192,6 @@ int main(int argc, char* argv[]) {
     Run(ChaCha20Test_Encrypt_Succeeds,        "ChaCha20: encrypt succeeds");
     Run(ChaCha20Test_Encrypt_CiphertextLength,"ChaCha20: ct len == pt len");
     Run(ChaCha20Test_Encrypt_CiphertextDiffers,"ChaCha20: ct differs from pt");
-    Run(ChaCha20Test_Encrypt_EmptyPlaintext,  "ChaCha20: empty pt -> nullopt");
     Run(ChaCha20Test_Encrypt_Deterministic,   "ChaCha20: deterministic");
     Run(ChaCha20Test_Encrypt_DifferentNonce,  "ChaCha20: diff nonce -> diff ct");
     Run(ChaCha20Test_Encrypt_DifferentKey,    "ChaCha20: diff key -> diff ct");
@@ -166,8 +225,22 @@ int main(int argc, char* argv[]) {
     Run(SipHashTest_NormalKey_LargeInput,  "SipHash: normal key, large input");
 
     // =============================================================================
+    // HKDF Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(HkdfTest_Extract_OutputSize,                        "HKDF: extract output size");
+    Run(HkdfTest_Extract_NotEmpty,                          "HKDF: extract not empty");
+    Run(HkdfTest_Expand_OutputSize,                         "HKDF: expand output size");
+    Run(HkdfTest_DeriveKey_OutputSize,                      "HKDF: derive key output size");
+    Run(HkdfTest_DeriveKey_Deterministic,                   "HKDF: derive key deterministic");
+    Run(HkdfTest_DeriveKey_DifferentSalt,                   "HKDF: diff salt -> diff output");
+    Run(HkdfTest_DeriveKey_DifferentIKM,                    "HKDF: diff ikm -> diff output");
+    Run(HkdfTest_Roundtrip_ExtractExpand_MatchesDeriveKey,  "HKDF: extract+expand == derivekey");
+    
+    // =============================================================================
     // X25519 Tests
     // =============================================================================
+  
     std::cout << "\n";
     Run(X25519Test_GenerateKeyPair_Succeeds,                  "X25519: keygen succeeds");
     Run(X25519Test_GenerateKeyPair_PublicDiffersFromPrivate,  "X25519: pub != priv");
@@ -190,11 +263,123 @@ int main(int argc, char* argv[]) {
     Run(X25519Test_DeriveSharedSecret_DifferentPeerGivesDifferentSecret, "X25519: diff peer -> diff secret");
     Run(X25519Test_DeriveSharedSecret_WrongPrivateKey,             "X25519: wrong priv -> diff secret");
     Run(X25519Test_DeriveSharedSecret_ThreePartyIndependent,       "X25519: 3-party independent");
-            // =============================================================================
+
+    // =============================================================================
+    // UDP Socket Tests
+    // =============================================================================
+
+    std::cout << "\n";
+    Run(UDPSocketTest_OpenClose,           "UDPSocket: open and close");
+    Run(UDPSocketTest_Bind,                "UDPSocket: bind ephemeral port");
+    Run(UDPSocketTest_SendToReceiveFrom,   "UDPSocket: send and receive");
+    Run(UDPSocketTest_Loopback_SenderInfo, "UDPSocket: loopback sender info");
+    Run(UDPSocketTest_Loopback_1KB,        "UDPSocket: loopback 1 KB");
+    //Run(UDPSocketTest_ExternalDNSQuery,    "UDPSocket: 8.8.8.8:53 DNS query"); // This appears to be blocked on the Fullerton Network
+
+    // =============================================================================
+    // BLAKE3 Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(Blake3Test_Hash256_Succeeds,           "BLAKE3: hash succeeds");
+    Run(Blake3Test_Hash256_OutputSize,         "BLAKE3: output = 32 bytes");
+    Run(Blake3Test_Hash256_EmptyInput,         "BLAKE3: empty input -> nullopt");
+    Run(Blake3Test_Hash256_Deterministic,      "BLAKE3: deterministic");
+    Run(Blake3Test_Hash256_DifferentInputs,    "BLAKE3: diff inputs -> diff hash");
+    Run(Blake3Test_Hash256_DiffersFromInput,   "BLAKE3: hash != input");
+    Run(Blake3Test_Hash256_SingleByte,         "BLAKE3: single byte input");
+    Run(Blake3Test_Hash256_1MB,               "BLAKE3: 1 MB input");
+    Run(Blake3Test_Hash256_AvalancheEffect,    "BLAKE3: avalanche effect");
+    Run(Blake3Test_Hash256_KnownAnswer_Abc,    "BLAKE3: known answer (abc)");
+
+    std::cout << "\n";
+    Run(Blake3Test_HashXof_MatchesHash256AtDefaultLen, "BLAKE3 XOF: matches Hash256 at 32B");
+    Run(Blake3Test_HashXof_OutputSize,         "BLAKE3 XOF: correct output size");
+    Run(Blake3Test_HashXof_ZeroOutputLen,      "BLAKE3 XOF: zero len -> nullopt");
+    Run(Blake3Test_HashXof_EmptyInput,         "BLAKE3 XOF: empty input -> nullopt");
+    Run(Blake3Test_HashXof_Deterministic,      "BLAKE3 XOF: deterministic");
+    Run(Blake3Test_HashXof_PrefixConsistency,  "BLAKE3 XOF: prefix consistency");
+
+    // =============================================================================
+    // Event Poller Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(EventPollerTest_FullLifecycle,              "EventPoller: full lifecycle");
+    Run(EventPollerTest_TwoPollersAndMoveSemantics, "EventPoller: two pollers + move");
+    Run(EventPollerTest_OperationsOnClosedPoller,   "EventPoller: ops on closed poller");
+
+    // =============================================================================
+    // TAI64N Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(Tai64nTest_SingleThread_UniqueTimestamps,  "TAI64N: single-thread unique");
+    Run(Tai64nTest_MT_AllUnique,                   "TAI64N: MT all unique (1K/thread)");
+    Run(Tai64nTest_MT_Throughput,                  "TAI64N: MT throughput (100K/thread)");
+
+    // =============================================================================
+    // Handshake Helpers Tests
+    // =============================================================================
+    core::handshake::InitHandshakeConstants();
+ 
+    // Mixhash
+    std::cout << "\n";
+    Run(MixHashTest_SingleByte,                    "MixHash: single byte");
+    Run(MixHashTest_EmptyData,                     "MixHash: empty data");
+    Run(MixHashTest_Deterministic,                 "MixHash: deterministic");
+    Run(MixHashTest_DifferentData,                 "MixHash: diff data -> diff hash");
+    Run(MixHashTest_DifferentStartingHash,         "MixHash: diff start -> diff hash");
+    Run(MixHashTest_OrderMatters,                  "MixHash: order matters");
+    Run(MixHashTest_ConcatVsSequential,            "MixHash: concat != sequential");
+    Run(MixHashTest_KnownAnswer_ZeroHash_Abc,      "MixHash: KAT zeros || abc");
+    Run(MixHashTest_KnownAnswer_ProtocolInitialHash, "MixHash: KAT protocol init hash");
+    Run(MixHashTest_LargeData,                     "MixHash: 4 KB data");
+
+        // KDF1
+    std::cout << "\n";
+    Run(KDF1Test_Succeeds,                         "KDF1: succeeds");
+    Run(KDF1Test_Deterministic,                    "KDF1: deterministic");
+    Run(KDF1Test_DifferentKey,                     "KDF1: diff key -> diff output");
+    Run(KDF1Test_DifferentInput,                   "KDF1: diff input -> diff output");
+    Run(KDF1Test_EmptyInput,                       "KDF1: empty input succeeds");
+    Run(KDF1Test_KnownAnswer,                      "KDF1: KAT manual computation");
+ 
+    // KDF2
+    std::cout << "\n";
+    Run(KDF2Test_Succeeds_DistinctOutputs,         "KDF2: T0 != T1");
+    Run(KDF2Test_Deterministic,                    "KDF2: deterministic");
+    Run(KDF2Test_T0MatchesKDF1,                    "KDF2: T0 == KDF1 output");
+    Run(KDF2Test_EmptyInput,                       "KDF2: empty input succeeds");
+    Run(KDF2Test_DifferentKey,                     "KDF2: diff key -> diff output");
+ 
+    // KDF3
+    std::cout << "\n";
+    Run(KDF3Test_Succeeds_DistinctOutputs,         "KDF3: T0 != T1 != T2");
+    Run(KDF3Test_Deterministic,                    "KDF3: deterministic");
+    Run(KDF3Test_T0T1MatchKDF2,                    "KDF3: T0,T1 == KDF2 output");
+    Run(KDF3Test_EmptyInput,                       "KDF3: empty input succeeds");
+    Run(KDF3Test_DifferentKey,                     "KDF3: diff key -> diff output");
+
+
+    // EncryptAndHash / DecryptAndHash
+    std::cout << "\n";
+    Run(EncryptAndHashTest_Roundtrip_Basic,       "EaH: roundtrip basic");
+    Run(EncryptAndHashTest_HashConvergence,       "EaH: hash convergence");
+    Run(EncryptAndHashTest_HashChanges,           "EaH: hash changes after encrypt");
+    Run(EncryptAndHashTest_OutputSize,            "EaH: output = pt + 16 tag");
+    Run(EncryptAndHashTest_EmptyPlaintext,        "EaH: empty pt (encrypted nothing)");
+    Run(EncryptAndHashTest_Deterministic,         "EaH: deterministic");
+
+    std::cout << "\n";
+    Run(DecryptAndHashTest_TamperedCiphertext,    "DaH: tampered ct -> reject");
+    Run(DecryptAndHashTest_TamperedTag,           "DaH: tampered tag -> reject");
+    Run(DecryptAndHashTest_HashUnchangedOnFailure,"DaH: H unchanged on failure");
+    Run(DecryptAndHashTest_WrongKey,              "DaH: wrong key -> reject");
+    Run(DecryptAndHashTest_InputTooShort,         "DaH: input too short -> reject");
+    Run(DecryptAndHashTest_MismatchedHash,        "DaH: mismatched H -> reject");
+
+    // =============================================================================
     // Future Tests
     // =============================================================================
 
-    //std::cout << std::endl;
       
     // =============================================================================
     // Test Summary
