@@ -71,24 +71,14 @@ int main() {
     uint8_t buf[65536];
 
     while (true) {
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(tun_fd,  &fds);
-        FD_SET(nfq_sock, &fds);
-        select(std::max(tun_fd, nfq_sock) + 1, &fds, nullptr, nullptr, nullptr);
-
-        if (FD_ISSET(tun_fd, &fds)) {
-            int len = read(tun_fd, buf, sizeof(buf));
+        int len = read(tun_fd, buf, sizeof(buf));
+        if (len > 0) {
             std::cout << "OUTBOUND " << len << " bytes\n";
-
-            // --- do something with buf here ---
-
-            // Inject back via raw socket with fwmark=1 → bypasses vpn_out → goes to main table → physical interface
             inject_outbound(raw_fd, buf, len);
         }
 
-        if (FD_ISSET(nfq_sock, &fds)) {
-            int len = recv(nfq_sock, buf, sizeof(buf), 0);
+        len = recv(nfq_sock, buf, sizeof(buf), 0);
+        if (len > 0) {
             nfq_handle_packet(h, (char*)buf, len);
         }
     }

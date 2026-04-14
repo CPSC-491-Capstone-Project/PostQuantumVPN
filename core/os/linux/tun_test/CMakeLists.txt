@@ -5,9 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 add_executable(tun_read
-    tun_read.cpp
-    net_filter_queue.cpp
-    tunnel.cpp
+#    tun_read.cpp
+    tun_read2.cpp
+    #net_filter_queue.cpp
+    #tunnel.cpp
+    #inbound_traffic.cpp
+    #outbound_traffic.cpp
+    #main.cpp
+
 )
 
 target_link_libraries(tun_read PRIVATE netfilter_queue)

@@ -9,10 +9,19 @@
 int open_tun(const char* ifname) 
 {
     int fd = open("/dev/net/tun", O_RDWR);
+    if (fd < 0) {
+        return -1;
+    }
+
     struct ifreq ifr{};
     ifr.ifr_flags = IFF_TUN | IFF_NO_PI;
     strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
-    ioctl(fd, TUNSETIFF, &ifr);
+
+    int ret = ioctl(fd, TUNSETIFF, &ifr);
+    if (ret < 0) {
+        return -1;
+    }
+
     return fd;
 }
 
