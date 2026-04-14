@@ -6,6 +6,7 @@
 #define _PQVPN_CORE_NETWORK_UDP_SOCKET_HPP_
 
 #include "network_constants.hpp"
+#include "ipv4.hpp"
 
 #include <cstdint>
 #include <string>
@@ -15,12 +16,13 @@
 
 
 namespace core::network {
+    using ConstData = std::span<const std::uint8_t>;
     using Data = std::span<std::uint8_t>;
     using BytesTransferred = std::ptrdiff_t;
 
     struct Endpoint {
-        std::string ip{};
-        std::uint16_t port{};
+        IPv4 ip{};
+        Port port{};
     };
 
     struct ReceiveResult {
@@ -39,7 +41,7 @@ namespace core::network {
         UDPSocket& operator=(UDPSocket&& other) noexcept;
 
         bool Open();
-        bool Bind(const std::string& ip, std::uint16_t port);
+        bool Bind(const IPv4 ip, Port port);
         void Close();
 
         bool SetNonBlocking(bool do_not_block = true);
