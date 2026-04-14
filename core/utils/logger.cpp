@@ -8,27 +8,29 @@ namespace core::utils {
         return instance;
     }
 
-    void Logger::init(const std::string& filename) {
+    Logger& Logger::init(const std::string& filename) {
         std::scoped_lock<std::mutex> lock(mutex_);
         if (logFile_.is_open()) {
             logFile_.close();
         }
         logFile_.open(filename);
         stream_ = &logFile_;
+        return *this;
     }
 
-    void Logger::init(std::ostream& os) {
+    Logger& Logger::init(std::ostream& os) {
         std::scoped_lock<std::mutex> lock(mutex_);
         if (logFile_.is_open()) {
             logFile_.close();
         }
         stream_ = &os;
+        return *this;
     }
 
-    void Logger::log(LogLevel level, const std::string& message) {
+    Logger& Logger::log(LogLevel level, const std::string& message) {
         // Only log if the event is at or more severe than the threshold
         if (level > threshold_) {
-            return;
+            return *this;
         }
         
         LogEvent event(level, message);
@@ -36,10 +38,13 @@ namespace core::utils {
 
         *stream_ << event.toString() << "\n";
         stream_->flush();
+
+        return *this;
     }
 
-    void Logger::setLogLevel(LogLevel level) {
+    Logger& Logger::setLogLevel(LogLevel level) {
         threshold_ = level;
+        return *this;
     }
 
 

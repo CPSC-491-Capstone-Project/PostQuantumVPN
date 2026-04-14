@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 
     // --- Logger --------------------------------------------------------------
     // Console logging
-    Logger::getInstance().init(std::cerr);
+    Logger::getInstance().init(std::cerr).setLogLevel(core::utils::LogLevel::DEBUG);
 
     // File logging — uncomment to switch:
     // Logger::getInstance().init(MakeLogFilename());
