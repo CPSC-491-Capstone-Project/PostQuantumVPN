@@ -26,6 +26,7 @@
 #include "logger_tests.hpp"
 #include "ml_kem_tests.hpp"
 #include "random_tests.hpp"
+#include "session_manager_tests.hpp"
 #include "siphash_tests.hpp"
 #include "tai64n_tests.hpp"
 #include "udp_socket_tests.hpp"
@@ -417,6 +418,16 @@ int main(int argc, char* argv[]) {
     Run(DecryptAndHashTest_WrongKey,            "DaH: wrong key -> reject");
     Run(DecryptAndHashTest_InputTooShort,       "DaH: input too short -> reject");
     Run(DecryptAndHashTest_MismatchedHash,      "DaH: mismatched H -> reject");
+
+    // =============================================================================
+    // Session Manager Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(SessionManagerTest_ActivateSession_FindableByIndex,    "SessionManager: activate findable by index");
+    Run(SessionManagerTest_ActivateSession_KeysMatch,          "SessionManager: keys match secrets");
+    Run(SessionManagerTest_ActivateSession_ZeroKeyRejected,    "SessionManager: zero key rejected");
+    Run(SessionManagerTest_TransitionSession_OldRemovedNewActive, "SessionManager: transition removes old");
+    Run(SessionManagerTest_TransitionSession_FailureKeepsOldSession, "SessionManager: transition fail keeps old");
 
     // =============================================================================
     // Future Tests
