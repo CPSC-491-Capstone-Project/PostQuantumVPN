@@ -1,4 +1,7 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_TAI64N_TESTS_HPP_
+#define _PQVPN_TESTS_TAI64N_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "tai64n.hpp"
 
 #include <functional>
@@ -36,7 +39,7 @@ bool Tai64nTest_MT_AllUnique(std::function<void()> startTimer) {
     for (auto& v : results) v.reserve(kCallsPerThread);
 
     std::latch gate(1);
-    std::vector<std::jthread> threads;
+    std::vector<std::thread> threads;
     threads.reserve(nThreads);
 
     for (unsigned t = 0; t < nThreads; ++t) {
@@ -68,7 +71,7 @@ bool Tai64nTest_MT_Throughput(std::function<void()> startTimer) {
     Tai64n clock;
 
     std::latch gate(1);
-    std::vector<std::jthread> threads;
+    std::vector<std::thread> threads;
     threads.reserve(nThreads);
 
     for (unsigned t = 0; t < nThreads; ++t) {
@@ -88,3 +91,4 @@ bool Tai64nTest_MT_Throughput(std::function<void()> startTimer) {
 
     return true;
 }
+#endif // _PQVPN_TESTS_TAI64N_TESTS_HPP_

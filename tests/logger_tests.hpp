@@ -1,4 +1,7 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_LOGGER_TESTS_HPP_
+#define _PQVPN_TESTS_LOGGER_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "logger.hpp"
 #include "log_event.hpp"
 
@@ -343,3 +346,4 @@ bool LoggerTest_LogEvent_TimestampBreaksTie() {
 
     return test_helper("1", std::to_string(all));
 }
+#endif // _PQVPN_TESTS_LOGGER_TESTS_HPP_

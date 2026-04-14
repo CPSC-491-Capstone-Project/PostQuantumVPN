@@ -1,4 +1,7 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_EVENT_POLLER_TESTS_HPP_
+#define _PQVPN_TESTS_EVENT_POLLER_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "event_poller.hpp"
 #include "udp_socket.hpp"
 #include "logger.hpp"
@@ -297,3 +300,4 @@ bool EventPollerTest_OperationsOnClosedPoller() {
 
     return true;
 }
+#endif // _PQVPN_TESTS_EVENT_POLLER_TESTS_HPP_

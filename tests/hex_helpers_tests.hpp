@@ -1,4 +1,7 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_HEX_HELPERS_TESTS_HPP_
+#define _PQVPN_TESTS_HEX_HELPERS_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "hex_helpers.tpp"
 
 #include <array>
@@ -84,3 +87,4 @@ bool HexTest_Array() {
     std::array<uint8_t, 4> data{0x01, 0x23, 0x45, 0x67};
     return test_helper("0x01234567", ToHexString(data));
 }
+#endif // _PQVPN_TESTS_HEX_HELPERS_TESTS_HPP_

@@ -2,6 +2,7 @@
 #define _PQVPN_CORE_UTILS_LOGGER_HPP_
 
 #include "log_event.hpp"
+#include <exception>
 #include <fstream>
 #include <iostream>
 #include <mutex>

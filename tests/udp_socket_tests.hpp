@@ -1,8 +1,13 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_UDP_SOCKET_TESTS_HPP_
+#define _PQVPN_TESTS_UDP_SOCKET_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "udp_socket.hpp"
 
 #ifdef _WIN32
 #include <winsock2.h>
+#else
+#include <sys/select.h>
 #endif
 
 #include <vector>
@@ -143,3 +148,4 @@ bool UDPSocketTest_ExternalDNSQuery() {
     // Verify: QR bit is set (response, not query)
     return (buf[2] & 0x80) != 0;
 }
+#endif // _PQVPN_TESTS_UDP_SOCKET_TESTS_HPP_

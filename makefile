@@ -123,12 +123,12 @@ CMAKE_LIB_ARCHIVES = $(foreach name,$(CMAKE_LIB_NAMES),$(wildcard $(LIBS_OBJDIR)
 $(LIBS_OBJDIR)/%/.built: $(LIBSDIR)/%/CMakeLists.txt
 	$(if $(SHOW_PROGRESS),@echo "[CMAKE] Configuring $*")
 	@mkdir -p $(LIBS_OBJDIR)/$*
-	$(Q)cmake -S $(LIBSDIR)/$* -B $(LIBS_OBJDIR)/$* \
+	$(Q)cmake -S "$(LIBSDIR)/$*" -B "$(LIBS_OBJDIR)/$*" \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DBUILD_SHARED_LIBS=OFF \
 		-DCMAKE_C_COMPILER=$(CC) \
 		-DCMAKE_CXX_COMPILER=$(CXX) \
-		-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$(CURDIR)/$(LIBS_OBJDIR)/$* \
+		"-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$(CURDIR)/$(LIBS_OBJDIR)/$*" \
 		$(CMAKE_QUIET)
 	$(if $(SHOW_PROGRESS),@echo "[CMAKE] Building $*")
 	$(Q)cmake --build $(LIBS_OBJDIR)/$* --config Release $(CMAKE_QUIET)
@@ -242,9 +242,11 @@ run-server: server
 	@echo "[makefile] Running $(BINDIR)/$(SERVER_TARGET)"
 	@./$(BINDIR)/$(SERVER_TARGET)
  
+FILTER ?=
+
 run-test: test
-	@echo "[makefile] Running $(BINDIR)/$(TEST_TARGET)"
-	@./$(BINDIR)/$(TEST_TARGET)
+	@echo "[makefile] Running $(BINDIR)/$(TEST_TARGET)$(if $(FILTER), [filter: $(FILTER)],)"
+	@"./$(BINDIR)/$(TEST_TARGET)" $(if $(FILTER),"$(FILTER)",)
  
 # ----- Cleanup Targets -----
 .PHONY: clean clean-logs clean-all
@@ -279,7 +281,7 @@ help:
 	@echo "Run Targets:"
 	@echo "  run-client     Build and run $(CLIENT_TARGET)"
 	@echo "  run-server     Build and run $(SERVER_TARGET)"
-	@echo "  run-test       Build and run $(TEST_TARGET)"
+	@echo "  run-test       Build and run $(TEST_TARGET)  (FILTER=<str> to run matching tests only)"
 	@echo ""
 	@echo "Cleanup Targets:"
 	@echo "  clean          Remove app binaries and objects ($(OBJDIR)/, $(BINDIR)/)"
