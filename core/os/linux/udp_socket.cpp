@@ -45,7 +45,7 @@ namespace core::network {
         return true;
     }
 
-    bool UDPSocket::Bind(const IPv4 ip, Port port) {
+    bool UDPSocket::Bind(const std::string& ip, std::uint16_t port) {
         if (!IsOpen()) {
             Logger::Error("UDPSocket: Bind called on closed socket");
             return false;
@@ -55,13 +55,13 @@ namespace core::network {
         addr.sin_family = AF_INET;
         addr.sin_port = htons(port);
 
-        if (::inet_pton(AF_INET, ip.ToString().c_str(), &addr.sin_addr) != 1) {
-            Logger::Error("UDPSocket: Invalid bind address: " + ip.ToString());
+        if (::inet_pton(AF_INET, ip.c_str(), &addr.sin_addr) != 1) {
+            Logger::Error("UDPSocket: Invalid bind address: " + ip);
             return false;
         }
 
         if (::bind(handle_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-            Logger::Error("UDPSocket: Failed to bind to " + ip.ToString() + ":" + std::to_string(port));
+            Logger::Error("UDPSocket: Failed to bind to " + ip + ":" + std::to_string(port));
             return false;
         }
         
@@ -107,8 +107,8 @@ namespace core::network {
         addr.sin_family = AF_INET;
         addr.sin_port = htons(destination.port);
 
-        if (::inet_pton(AF_INET, destination.ip.ToString().c_str(), &addr.sin_addr) != 1) {
-            Logger::Error("UDPSocket: Invalid destination address: " + destination.ip.ToString());
+        if (::inet_pton(AF_INET, destination.ip.c_str(), &addr.sin_addr) != 1) {
+            Logger::Error("UDPSocket: Invalid destination address: " + destination.ip);
             return -1;
         }
 
@@ -157,7 +157,7 @@ namespace core::network {
         return ReceiveResult{
             .bytes_read = static_cast<std::size_t>(received),
             .sender = Endpoint{
-                .ip = IPv4(std::string(ip_buffer)),
+                .ip = std::string(ip_buffer),
                 .port = ntohs(addr.sin_port)
             }
         };
@@ -181,7 +181,7 @@ namespace core::network {
         ::inet_ntop(AF_INET, &addr.sin_addr, ip_buf, sizeof(ip_buf));
 
         return Endpoint{
-            .ip = IPv4(std::string(ip_buf)),
+            .ip = std::string(ip_buf),
             .port = ntohs(addr.sin_port)
         };
     }
