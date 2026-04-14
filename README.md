@@ -115,6 +115,7 @@ The `FILTER` value is a substring match against the test name. Available filters
 | `KDF` | KDF1 + KDF2 + KDF3 + HKDF (all key derivation) |
 | `EaH` | EncryptAndHash tests |
 | `DaH` | DecryptAndHash tests |
+| `Session` | Sessions tests |
 
 
 ## Project Links
