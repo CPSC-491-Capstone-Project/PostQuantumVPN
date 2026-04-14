@@ -38,7 +38,7 @@ int nfq_init(struct nfq_state* nfq_state, int queue_id, void* callback)
 
     nfq_state->socket = nfq_fd(nfq_state->handle);
 
-    return 0;
+    return nfq_state->socket;
 }
 
 int nfq_poll(struct nfq_state* nfq_state)

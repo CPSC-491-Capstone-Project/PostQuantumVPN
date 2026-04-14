@@ -64,5 +64,5 @@ int OutboundTraffic_Init()
 
     outbound_interception_fd = tun_fd;
 
-    return 0;
+    return tun_fd;
 }

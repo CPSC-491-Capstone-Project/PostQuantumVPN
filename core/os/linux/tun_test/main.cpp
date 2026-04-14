@@ -1,52 +1,107 @@
+#include <array>
+#include <csignal>
+#include <cstdio>
 #include <iostream>
 
 #include "inbound_traffic.hpp"
 #include "outbound_traffic.hpp"
+#include "temp/event_poller.hpp"
+#include "temp/logger.hpp"
 
+using core::network::EventPoller;
+using core::network::EventMask;
+using core::network::PollEvent;
+using core::network::Handle;
 
-#include <thread>
-#include <chrono>
+static volatile bool g_running = true;
 
-static int on_inbound(struct nfq_packet packet)
-{
-    // Modify data here.
-
-    printf("INBOUND: Read packet of length: %d\n", packet.data_len);
-
-
-    // Deliver data to desination socket.
-    return nfq_deliver(&packet);
+static void OnSignal(int) {
+    g_running = false;
 }
 
-int main()
-{
-    int ret = InboundTraffic_Init((void*)on_inbound);
+static void on_inbound(struct nfq_packet packet) {
+    printf("INBOUND: Read packet of length: %d\n", packet.data_len);
+
+    InboundTraffic_Inject(&packet);
+}
+
+static void HandleInbound() {
+    InboundTraffic_Poll();
+}
+
+static void HandleOutbound() {
+    static uint8_t buf[65536];
+
+    const int len_recv = OutboundTraffic_Read(buf, sizeof(buf));
+    if (len_recv < 0) {
+        perror("Unable to read outbound packet!\n");
+        return;
+    }
+
+    printf("OUTBOUND: Read packet of length: %d\n", len_recv);
+
+    const int ret = OutboundTraffic_Inject(buf, len_recv);
     if (ret < 0) {
+        perror("Unable to inject outbound traffic!\n");
+    }
+}
+
+int main() {
+    std::signal(SIGINT,  OnSignal);
+    std::signal(SIGTERM, OnSignal);
+
+    core::utils::Logger::getInstance().init(std::cerr);
+
+    const Handle nfq_fd = InboundTraffic_Init((void*)on_inbound);
+    if (nfq_fd < 0) {
         perror("Failed to Init inbound traffic!");
+        return 1;
     }
 
-    ret = OutboundTraffic_Init();
-    if (ret < 0) {
-        perror("Failed to Init outbound traffic!\n");
+    const Handle tunnel_fd = OutboundTraffic_Init();
+    if (tunnel_fd < 0) {
+        perror("Failed to Init outbound traffic!");
+        return 1;
     }
 
-    const int buf_len = 65536;
-    uint8_t buf[buf_len];
+    EventPoller poller;
+    if (!poller.Open()) {
+        return 1;
+    }
 
-    while (true) {
-        InboundTraffic_Poll();
-        int len_recv = OutboundTraffic_Read(buf, buf_len);
-        if (len_recv < 0) {
-            perror("Unable to read outbound packet!\n");
-        } else {
-            printf("OUTBOUND: Read packet of length: %d\n", len_recv);
-            ret = OutboundTraffic_Inject(buf, len_recv);
-            if (ret < 0) {
-                perror("Unable to inject outbound traffic!\n");
-            }
+    const uint32_t interest = EventMask::Readable
+                            | EventMask::Error
+                            | EventMask::Hangup;
+
+    if (!poller.Add(nfq_fd, interest) || !poller.Add(tunnel_fd, interest)) {
+        return 1;
+    }
+
+    std::array<PollEvent, 8> events{};
+
+    while (g_running) {
+        const int ready = poller.Poll(std::span{events}, 100);
+        if (ready < 0) {
+            break;
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        for (int i = 0; i < ready; ++i) {
+            const Handle fd   = events[i].handle;
+            const auto   mask = events[i].mask;
+
+            if (mask & (EventMask::Error | EventMask::Hangup)) {
+                g_running = false;
+                break;
+            }
+
+            if (mask & EventMask::Readable) {
+                if (fd == nfq_fd) {
+                    HandleInbound();
+                } else if (fd == tunnel_fd) {
+                    HandleOutbound();
+                }
+            }
+        }
     }
 
     return 0;
