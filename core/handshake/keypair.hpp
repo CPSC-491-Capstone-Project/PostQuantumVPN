@@ -2,6 +2,7 @@
 #define _PQVPN_CORE_HANDSHAKE_KEYPAIR_HPP_
 
 #include "chacha20_poly1305.hpp"
+#include "secure_memory.hpp"
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -32,13 +33,8 @@ struct Keypair {
 
     // Zeros send and receive keys before destruction
     void Clear() {
-        volatile std::uint8_t* p;
-
-        p = send_key.data();
-        for (std::size_t i = 0; i < send_key.size(); i++) p[i] = 0;
-
-        p = receive_key.data();
-        for (std::size_t i = 0; i < receive_key.size(); i++) p[i] = 0;
+        core::utils::secure_zero(send_key);
+        core::utils::secure_zero(receive_key);
     }
 
     ~Keypair() { Clear(); }
