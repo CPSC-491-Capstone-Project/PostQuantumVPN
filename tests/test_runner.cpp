@@ -32,6 +32,7 @@
 #include "tai64n_tests.hpp"
 #include "udp_socket_tests.hpp"
 #include "x25519_tests.hpp"
+#include "index_table_tests.hpp"
 
 // --- Standard headers used by the runner itself ---
 #include "handshake_constants.hpp"
@@ -445,6 +446,16 @@ int main(int argc, char* argv[]) {
     Run(SessionManagerTest_ActivateSession_ZeroKeyRejected,    "SessionManager: zero key rejected");
     Run(SessionManagerTest_TransitionSession_OldRemovedNewActive, "SessionManager: transition removes old");
     Run(SessionManagerTest_TransitionSession_FailureKeepsOldSession, "SessionManager: transition fail keeps old");
+
+    // =============================================================================
+    // Index Table Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(IndexTableTest_NewIndex_InsertAndLookup,      "IndexTable: new index insert and lookup");
+    Run(IndexTableTest_Lookup_MissingIndex,           "IndexTable: lookup missing index");
+    Run(IndexTableTest_NewIndex_UniqueIndices,        "IndexTable: new index unique");
+    Run(IndexTableTest_SwapHandshakeToKeypair_UpdatesEntry, "IndexTable: swap handshake to keypair");
+    Run(IndexTableTest_Delete_RemovesEntry,           "IndexTable: delete removes entry");
 
     // =============================================================================
     // Future Tests
