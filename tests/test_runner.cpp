@@ -26,6 +26,7 @@
 #include "logger_tests.hpp"
 #include "ml_kem_tests.hpp"
 #include "random_tests.hpp"
+#include "secure_memory_tests.hpp"
 #include "session_manager_tests.hpp"
 #include "siphash_tests.hpp"
 #include "tai64n_tests.hpp"
@@ -246,6 +247,22 @@ int main(int argc, char* argv[]) {
     Run(ChaCha20Test_Auth_WrongAAD,            "ChaCha20: wrong AAD -> reject");
     Run(ChaCha20Test_Auth_MissingAAD,          "ChaCha20: missing AAD -> reject");
     Run(ChaCha20Test_Auth_SpuriousAAD,         "ChaCha20: spurious AAD -> reject");
+
+    // =============================================================================
+    // Secure Memory Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(CtMemcmpTest_Equal,                      "ct_memcmp: equal arrays");
+    Run(CtMemcmpTest_NotEqual,                   "ct_memcmp: not equal arrays");
+    Run(CtMemcmpTest_SingleByteDifferenceMiddle, "ct_memcmp: diff byte in middle");
+    Run(CtMemcmpTest_DifferenceAtLastByte,       "ct_memcmp: diff at last byte");
+    Run(CtMemcmpTest_DifferenceAtFirstByte,      "ct_memcmp: diff at first byte");
+    Run(CtMemcmpTest_ZeroLength,                 "ct_memcmp: zero length");
+    Run(CtMemcmpTest_SpanOverload_Equal,         "ct_memcmp: span equal");
+    Run(CtMemcmpTest_SpanOverload_DifferentLengths, "ct_memcmp: span diff lengths");
+    Run(SecureZeroTest_ZerosArray,               "secure_zero: zeros array");
+    Run(SecureZeroTest_ZerosRawPointer,          "secure_zero: zeros raw pointer");
+    Run(SecureZeroTest_ZeroLength,               "secure_zero: zero length no-op");
 
     // =============================================================================
     // SipHash Tests

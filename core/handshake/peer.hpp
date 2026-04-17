@@ -3,6 +3,7 @@
 
 #include "handshake_state.hpp"
 #include "keypair.hpp"
+#include "secure_memory.hpp"
 #include "x25519.hpp"
 #include "ipv4.hpp"
 #include "network_constants.hpp"
@@ -62,28 +63,16 @@ struct Peer {
 
     // Zeros all sensitive key material
     void Clear() {
-        volatile std::uint8_t* p;
+        using core::utils::secure_zero;
 
-        p = local_static_x25519_private.data();
-        for (std::size_t i = 0; i < local_static_x25519_private.size(); ++i) p[i] = 0;
-
-        p = local_static_mlkem_dk.data();
-        for (std::size_t i = 0; i < local_static_mlkem_dk.size(); ++i) p[i] = 0;
-
-        p = precomputed_static_static.data();
-        for (std::size_t i = 0; i < precomputed_static_static.size(); ++i) p[i] = 0;
-
-        p = preshared_key.data();
-        for (std::size_t i = 0; i < preshared_key.size(); ++i) p[i] = 0;
-
-        p = mac1_key.data();
-        for (std::size_t i = 0; i < mac1_key.size(); ++i) p[i] = 0;
-
-        p = last_received_cookie.data();
-        for (std::size_t i = 0; i < last_received_cookie.size(); ++i) p[i] = 0;
-
-        p = last_sent_mac1.data();
-        for (std::size_t i = 0; i < last_sent_mac1.size(); ++i) p[i] = 0;
+        secure_zero(local_static_x25519_private);
+        secure_zero(local_static_mlkem_dk);
+        secure_zero(precomputed_static_static);
+        secure_zero(preshared_key);
+        secure_zero(mac1_key);
+        secure_zero(cookie_key);
+        secure_zero(last_received_cookie);
+        secure_zero(last_sent_mac1);
 
         cookie_valid = false;
         handshake.Clear();

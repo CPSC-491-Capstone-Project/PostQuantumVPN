@@ -2,6 +2,7 @@
 #define _PQVPN_CORE_HANDSHAKE_HANDSHAKE_STATE_HPP_
 
 #include "handshake_constants.hpp"
+#include "secure_memory.hpp"
 #include "tai64n.hpp"
 #include <array>
 #include <cstdint>
@@ -58,24 +59,25 @@ struct HandshakeState {
 
     // Zeros all sensitive fields and resets to Zeroed state
     void Clear() {
+        using core::utils::secure_zero;
+
         state = HandshakeStateEnum::Zeroed;
 
-        volatile std::uint8_t* p;
+        secure_zero(chaining_key);
+        secure_zero(hash);
 
-        p = chaining_key.data();
-        for (std::size_t i = 0; i < chaining_key.size(); i++) p[i] = 0;
+        secure_zero(local_ephemeral_x25519_private);
+        secure_zero(local_ephemeral_x25519_public);
+        secure_zero(local_ephemeral_mlkem_dk);
+        secure_zero(local_ephemeral_mlkem_ek);
 
-        p = hash.data();
-        for (std::size_t i = 0; i < hash.size(); i++) p[i] = 0;
+        secure_zero(remote_static_x25519);
+        secure_zero(remote_static_mlkem);
+        secure_zero(remote_ephemeral_x25519);
+        secure_zero(remote_ephemeral_mlkem);
 
-        p = local_ephemeral_x25519_private.data();
-        for (std::size_t i = 0; i < local_ephemeral_x25519_private.size(); i++) p[i] = 0;
-
-        p = local_ephemeral_mlkem_dk.data();
-        for (std::size_t i = 0; i < local_ephemeral_mlkem_dk.size(); i++) p[i] = 0;
-
-        p = preshared_key.data();
-        for (std::size_t i = 0; i < preshared_key.size(); i++) p[i] = 0;
+        secure_zero(precomputed_static_static);
+        secure_zero(preshared_key);
 
         local_index  = 0;
         remote_index = 0;
