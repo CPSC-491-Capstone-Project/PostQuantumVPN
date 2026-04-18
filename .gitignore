@@ -15,5 +15,7 @@ build.ninja
 .ninja_deps
 .ninja_log
 
+# Claude
 .claude
 CLAUDE.md
+*.jsonl
