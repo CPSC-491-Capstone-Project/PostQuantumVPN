@@ -584,6 +584,7 @@ int main(int argc, char* argv[]) {
     Run(DeriveSessionKeys_HashZeroed,                        "DeriveSessionKeys: hash zeroed");
     Run(DeriveSessionKeys_WrongState_Rejected,               "DeriveSessionKeys: wrong state rejected");
     Run(DeriveSessionKeys_KeysAreUnique,                     "DeriveSessionKeys: keys are unique per handshake");
+    Run(DeriveSessionKeys_OneServer_FiveClients_Concurrent,  "DeriveSessionKeys: 1 server + 5 clients concurrent");
 
     // =============================================================================
     // Future Tests

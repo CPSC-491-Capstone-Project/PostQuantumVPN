@@ -13,7 +13,9 @@
 #include <openssl/evp.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
+#include <thread>
 #include <vector>
 
 using namespace core::handshake;
@@ -336,6 +338,79 @@ bool DeriveSessionKeys_KeysAreUnique() {
 
     const bool differ = (kp1->send_key != kp2->send_key);
     return test_helper("1", std::to_string(differ));
+}
+
+// ============================================================================
+// Concurrency test: 1 server, 5 clients, all handshaking simultaneously
+//
+// Each client-server pair runs in its own thread. The server side is
+// represented by a separate Peer per client (as in a real VPN server).
+// All pairs share a single IndexTable, which is the server's shared state.
+// ============================================================================
+
+bool DeriveSessionKeys_OneServer_FiveClients_Concurrent() {
+    constexpr std::size_t kNumClients = 5;
+
+    // One peer pair per client — server has a separate Peer per client connection
+    std::array<DskPeerPair, kNumClients> pairs{};
+    IndexTable idx; // shared index table, simulates the server
+
+    for (auto& pp : pairs) {
+        if (!SetupDskPeerPair(pp)) return false;
+    }
+
+    std::array<bool, kNumClients> results{};
+    results.fill(false);
+
+    // Launch one thread per client, each running the full 4-step handshake
+    std::array<std::thread, kNumClients> threads;
+    for (std::size_t i = 0; i < kNumClients; ++i) {
+        threads[i] = std::thread([&pairs, &idx, &results, i]() {
+            results[i] = RunFullSimulation(pairs[i], idx).ok;
+        });
+    }
+
+    for (auto& t : threads) t.join();
+
+    // All handshakes must succeed
+    for (std::size_t i = 0; i < kNumClients; ++i) {
+        if (!results[i]) return test_helper("1", "0");
+    }
+
+    // Every initiator must have a Current keypair with non-zero keys
+    for (std::size_t i = 0; i < kNumClients; ++i) {
+        const Keypair* kp = pairs[i].initiator.keypairs.Current();
+        if (!kp) return test_helper("1", "0");
+        const bool nonzero = std::any_of(kp->send_key.begin(), kp->send_key.end(),
+                                         [](std::uint8_t b) { return b != 0; });
+        if (!nonzero) return test_helper("1", "0");
+    }
+
+    // Every responder must have a Next keypair
+    for (std::size_t i = 0; i < kNumClients; ++i) {
+        if (!pairs[i].responder.keypairs.Next()) return test_helper("1", "0");
+    }
+
+    // Key symmetry: each pair's initiator.send == responder.receive
+    for (std::size_t i = 0; i < kNumClients; ++i) {
+        const Keypair* i_kp = pairs[i].initiator.keypairs.Current();
+        const Keypair* r_kp = pairs[i].responder.keypairs.Next();
+        if (!i_kp || !r_kp) return test_helper("1", "0");
+        if (i_kp->send_key    != r_kp->receive_key) return test_helper("1", "0");
+        if (i_kp->receive_key != r_kp->send_key)    return test_helper("1", "0");
+    }
+
+    // All 5 session keys must be distinct from one another
+    for (std::size_t i = 0; i < kNumClients; ++i) {
+        for (std::size_t j = i + 1; j < kNumClients; ++j) {
+            const Keypair* a = pairs[i].initiator.keypairs.Current();
+            const Keypair* b = pairs[j].initiator.keypairs.Current();
+            if (!a || !b) return test_helper("1", "0");
+            if (a->send_key == b->send_key) return test_helper("1", "0");
+        }
+    }
+
+    return test_helper("1", "1");
 }
 
 #endif // _PQVPN_TESTS_DERIVE_SESSION_KEYS_TESTS_HPP_
