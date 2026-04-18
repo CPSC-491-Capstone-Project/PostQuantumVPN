@@ -20,6 +20,7 @@
 #include "chacha20_poly1305_tests.hpp"
 #include "event_poller_tests.hpp"
 #include "handshake_helper_tests.hpp"
+#include "handshake_initiation_tests.hpp"
 #include "handshake_timer_tests.hpp"
 #include "hex_helpers_tests.hpp"
 #include "hkdf_tests.hpp"
@@ -492,6 +493,28 @@ int main(int argc, char* argv[]) {
     Run(HandshakeTimerTest_KeyExpiry_ClearAllZerosSlots,         "HandshakeTimer 9c: ClearAll zeros all slots");
     Run(HandshakeTimerTest_KeyExpiry_CallbackFiresAndZerosKeypairs, "HandshakeTimer 9c: callback zeros keypairs");
     Run(HandshakeTimerTest_KeyExpiry_DoesNotTouchStaticStatic,   "HandshakeTimer 9c: does not touch static_static");
+
+    // =============================================================================
+    // Handshake Initiation Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(CreateInitiation_ReturnsMessage,                    "CreateInitiation: returns message");
+    Run(CreateInitiation_MessageSize,                       "CreateInitiation: message is 3620 bytes");
+    Run(CreateInitiation_TypeField,                         "CreateInitiation: type field = 1");
+    Run(CreateInitiation_SenderIndexMatchesState,           "CreateInitiation: sender index matches state");
+    Run(CreateInitiation_StateIsInitiationCreated,          "CreateInitiation: state = InitiationCreated");
+    Run(CreateInitiation_ChainingKeyModified,               "CreateInitiation: chaining key modified");
+    Run(CreateInitiation_HashModified,                      "CreateInitiation: hash modified");
+    Run(CreateInitiation_EphemeralX25519PrivateStored,      "CreateInitiation: X25519 private key stored");
+    Run(CreateInitiation_EphemeralMlKemDkStored,            "CreateInitiation: ML-KEM DK stored");
+    Run(CreateInitiation_EphemeralX25519InMessageMatchesState, "CreateInitiation: X25519 EK in msg matches state");
+    Run(CreateInitiation_EphemeralMlKemEkInMessageMatchesState,"CreateInitiation: ML-KEM EK in msg matches state");
+    Run(CreateInitiation_MacFieldsAreZero,                  "CreateInitiation: MAC fields are zero");
+    Run(CreateInitiation_IndexTableEntryExists,             "CreateInitiation: index table entry exists");
+    Run(CreateInitiation_IndexTableEntryPointsToPeer,       "CreateInitiation: index table entry -> peer");
+    Run(CreateInitiation_LocalIndexNonZero,                 "CreateInitiation: local index != 0");
+    Run(CreateInitiation_EphemeralKeysAreRandom,            "CreateInitiation: ephemeral keys are random");
+    Run(CreateInitiation_MessageDeserializes,               "CreateInitiation: message deserializes");
 
     // =============================================================================
     // Future Tests
