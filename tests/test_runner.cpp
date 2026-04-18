@@ -551,6 +551,21 @@ int main(int argc, char* argv[]) {
     Run(E2E_InitiationAndResponse_ChainingKeyConverges, "E2E: initiation + response C non-trivial");
 
     // =============================================================================
+    // ConsumeMessageResponse Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(ConsumeResponse_Succeeds,                      "ConsumeResponse: succeeds");
+    Run(ConsumeResponse_StateIsResponseConsumed,       "ConsumeResponse: state = ResponseConsumed");
+    Run(ConsumeResponse_ChainingKeyUpdated,            "ConsumeResponse: chaining key updated");
+    Run(ConsumeResponse_RemoteIndexStored,             "ConsumeResponse: remote index stored");
+    Run(ConsumeResponse_EphemeralX25519PrivateZeroed,  "ConsumeResponse: ephemeral X25519 priv zeroed");
+    Run(ConsumeResponse_EphemeralMlKemDkZeroed,        "ConsumeResponse: ephemeral ML-KEM DK zeroed");
+    Run(ConsumeResponse_TamperedTag_Rejected,          "ConsumeResponse: tampered tag rejected");
+    Run(ConsumeResponse_WrongState_Rejected,           "ConsumeResponse: wrong state rejected");
+    Run(ConsumeResponse_ReceiverIndexMismatch_Rejected,"ConsumeResponse: receiver index mismatch rejected");
+    Run(E2E_FullHandshake_ChainingKeyConverges,        "E2E: full handshake C and H converge");
+
+    // =============================================================================
     // Future Tests
     // =============================================================================
 

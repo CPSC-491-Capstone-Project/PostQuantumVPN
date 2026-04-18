@@ -435,8 +435,122 @@ CreateMessageResponse(Peer& peer, IndexTable& index_table) {
 // ============================================================================
 
 bool ConsumeMessageResponse(ConstByteSpan msg, Peer& peer, IndexTable& index_table) {
-    (void)msg; (void)peer; (void)index_table;
-    return false; // DG-243
+    // Step 1: Parse response
+    auto response = DeserializeResponse(msg.data(), msg.size());
+    if (!response) return false;
+
+    // Step 2: Verify receiver_index maps to this peer
+    auto entry = index_table.Lookup(response->receiver_index);
+    if (!entry || entry->peer != &peer) return false;
+
+    // Step 3: Verify state and load C, H, ephemeral keys under lock
+    Blake3Hash C, H;
+    std::array<std::uint8_t, 32>   e_i_priv{};
+    std::array<std::uint8_t, 2400> e_i_mlkem_dk{};
+    {
+        std::lock_guard lock(peer.handshake.mutex);
+        if (peer.handshake.state != HandshakeStateEnum::InitiationCreated)
+            return false;
+        C = peer.handshake.chaining_key;
+        H = peer.handshake.hash;
+        e_i_priv     = peer.handshake.local_ephemeral_x25519_private;
+        e_i_mlkem_dk = peer.handshake.local_ephemeral_mlkem_dk;
+    }
+
+    // TODO: DG-244 — mac1 verification
+
+    // Step 5: Mix E_r_pub into transcript
+    if (!MixKey(C, response->ephemeral_x25519)) {
+        secure_zero(e_i_priv);
+        secure_zero(e_i_mlkem_dk);
+        return false;
+    }
+    MixHash(H, response->ephemeral_x25519);
+
+    // Step 6: DH #3 (ee) — initiator ephemeral × responder ephemeral
+    auto dh_ee_opt = core::cryptography::x25519::DeriveSharedSecret(
+        e_i_priv, response->ephemeral_x25519);
+    secure_zero(e_i_priv);
+    if (!dh_ee_opt) {
+        secure_zero(e_i_mlkem_dk);
+        return false;
+    }
+    auto dh_ee = *dh_ee_opt;
+    if (!MixKey(C, dh_ee)) {
+        secure_zero(dh_ee);
+        secure_zero(e_i_mlkem_dk);
+        return false;
+    }
+    secure_zero(dh_ee);
+
+    // Step 7: KEM #2 — decapsulate ct_ee with initiator's ephemeral ML-KEM DK
+    auto e_dk_ptr = RebuildMlKemKey(e_i_mlkem_dk);
+    secure_zero(e_i_mlkem_dk);
+    if (!e_dk_ptr) return false;
+    auto ss_kem_ee = core::cryptography::ml_kem::Decapsulate(
+        e_dk_ptr.get(), response->kem_ciphertext_ee);
+    e_dk_ptr.reset();
+    if (!ss_kem_ee) return false;
+    if (!MixKey(C, ConstByteSpan{ss_kem_ee->data(), ss_kem_ee->size()})) {
+        secure_zero(ss_kem_ee->data(), ss_kem_ee->size());
+        return false;
+    }
+    secure_zero(ss_kem_ee->data(), ss_kem_ee->size());
+    MixHash(H, response->kem_ciphertext_ee);
+
+    // Step 8: DH #4 (se) — initiator static × responder ephemeral
+    auto dh_se_opt = core::cryptography::x25519::DeriveSharedSecret(
+        peer.local_static_x25519_private, response->ephemeral_x25519);
+    if (!dh_se_opt) return false;
+    auto dh_se = *dh_se_opt;
+    if (!MixKey(C, dh_se)) {
+        secure_zero(dh_se);
+        return false;
+    }
+    secure_zero(dh_se);
+
+    // Step 9: KEM #3 — decapsulate ct_se with initiator's static ML-KEM DK
+    auto s_dk_ptr = RebuildMlKemKey(peer.local_static_mlkem_dk);
+    if (!s_dk_ptr) return false;
+    auto ss_kem_se = core::cryptography::ml_kem::Decapsulate(
+        s_dk_ptr.get(), response->kem_ciphertext_se);
+    s_dk_ptr.reset();
+    if (!ss_kem_se) return false;
+    if (!MixKey(C, ConstByteSpan{ss_kem_se->data(), ss_kem_se->size()})) {
+        secure_zero(ss_kem_se->data(), ss_kem_se->size());
+        return false;
+    }
+    secure_zero(ss_kem_se->data(), ss_kem_se->size());
+    MixHash(H, response->kem_ciphertext_se);
+
+    // Step 10: Mix PSK
+    auto kdf3 = KDF3(C, peer.preshared_key);
+    if (!kdf3) return false;
+    C = std::get<0>(*kdf3);
+    Blake3Hash tau     = std::get<1>(*kdf3);
+    Blake3Hash dec_key = std::get<2>(*kdf3);
+    secure_zero(std::get<1>(*kdf3));
+    secure_zero(std::get<2>(*kdf3));
+    MixHash(H, tau);
+    secure_zero(tau);
+
+    // Step 11: Decrypt and verify empty payload — authentication gate
+    auto dec_empty = DecryptAndHash(H, dec_key, response->encrypted_empty);
+    secure_zero(dec_key);
+    if (!dec_empty) return false;
+
+    // Step 12 & 13: Commit state and zero ephemeral private keys
+    {
+        std::lock_guard lock(peer.handshake.mutex);
+        peer.handshake.chaining_key = C;
+        peer.handshake.hash         = H;
+        peer.handshake.remote_index = response->sender_index;
+        peer.handshake.state        = HandshakeStateEnum::ResponseConsumed;
+        secure_zero(peer.handshake.local_ephemeral_x25519_private);
+        secure_zero(peer.handshake.local_ephemeral_mlkem_dk);
+    }
+
+    return true;
 }
 
 bool DeriveSessionKeys(Peer& peer, IndexTable& index_table, bool is_initiator) {
