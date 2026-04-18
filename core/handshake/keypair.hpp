@@ -90,6 +90,14 @@ public:
         return next_.get();
     }
 
+    // Zeros and destroys all three keypair slots. Called by key expiry timer.
+    void ClearAll() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (current_)  { current_->Clear();  current_.reset(); }
+        if (previous_) { previous_->Clear(); previous_.reset(); }
+        if (next_)     { next_->Clear();     next_.reset(); }
+    }
+
 private:
     std::unique_ptr<Keypair> current_{nullptr};
     std::unique_ptr<Keypair> previous_{nullptr};

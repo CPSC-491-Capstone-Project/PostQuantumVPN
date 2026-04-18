@@ -20,6 +20,7 @@
 #include "chacha20_poly1305_tests.hpp"
 #include "event_poller_tests.hpp"
 #include "handshake_helper_tests.hpp"
+#include "handshake_timer_tests.hpp"
 #include "hex_helpers_tests.hpp"
 #include "hkdf_tests.hpp"
 #include "ipv4_tests.hpp"
@@ -456,6 +457,41 @@ int main(int argc, char* argv[]) {
     Run(IndexTableTest_NewIndex_UniqueIndices,        "IndexTable: new index unique");
     Run(IndexTableTest_SwapHandshakeToKeypair_UpdatesEntry, "IndexTable: swap handshake to keypair");
     Run(IndexTableTest_Delete_RemovesEntry,           "IndexTable: delete removes entry");
+
+    // =============================================================================
+    // Handshake Timer Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(HandshakeTimerTest_DeadlineTimer_CallbackFires,          "HandshakeTimer: callback fires");
+    Run(HandshakeTimerTest_DeadlineTimer_DisarmPreventsCallback, "HandshakeTimer: disarm prevents callback");
+    Run(HandshakeTimerTest_DeadlineTimer_RearmRestarts,          "HandshakeTimer: rearm restarts countdown");
+    Run(HandshakeTimerTest_DeadlineTimer_CallbackFiresOnce,      "HandshakeTimer: callback fires once");
+    Run(HandshakeTimerTest_DeadlineTimer_IsArmedReflectsState,   "HandshakeTimer: IsArmed state");
+    Run(HandshakeTimerTest_DeadlineTimer_ConcurrentArmDisarm,    "HandshakeTimer: concurrent arm/disarm");
+    Run(HandshakeTimerTest_Jitter_InRange,                       "HandshakeTimer: jitter in [0, 334ms)");
+    Run(HandshakeTimerTest_Jitter_Varies,                        "HandshakeTimer: jitter varies");
+
+    std::cout << "\n";
+    Run(HandshakeTimerTest_Retransmit_ArmsOnCall,                "HandshakeTimer 9a: arm on call");
+    Run(HandshakeTimerTest_Retransmit_DisarmResetsAttempts,      "HandshakeTimer 9a: disarm resets attempts");
+    Run(HandshakeTimerTest_Retransmit_CallbackIncrementsAttempts,"HandshakeTimer 9a: callback increments attempts");
+    Run(HandshakeTimerTest_Retransmit_StopsAtMaxAttempts,        "HandshakeTimer 9a: stops at 18 attempts");
+
+    std::cout << "\n";
+    Run(HandshakeTimerTest_Rekey_FiresImmediately_WhenNonceExceedsMax, "HandshakeTimer 9b: immediate on nonce overflow");
+    Run(HandshakeTimerTest_Rekey_FiresImmediately_WhenKeypairExpired,  "HandshakeTimer 9b: immediate on expired keypair");
+    Run(HandshakeTimerTest_Rekey_ArmedForFutureExpiry,                 "HandshakeTimer 9b: armed for future expiry");
+    Run(HandshakeTimerTest_LastMinute_TrueWhenOldEnough,               "HandshakeTimer 9b: last-minute when old enough");
+    Run(HandshakeTimerTest_LastMinute_FalseWhenFlagSet,                "HandshakeTimer 9b: last-minute blocked by flag");
+    Run(HandshakeTimerTest_LastMinute_FalseWhenTooYoung,               "HandshakeTimer 9b: no last-minute for young keypair");
+    Run(HandshakeTimerTest_Rekey_DisarmClearsSentFlag,                 "HandshakeTimer 9b: disarm clears sent flag");
+
+    std::cout << "\n";
+    Run(HandshakeTimerTest_KeyExpiry_ArmsOnCall,                 "HandshakeTimer 9c: arms on call");
+    Run(HandshakeTimerTest_KeyExpiry_DisarmsOnCall,              "HandshakeTimer 9c: disarms on call");
+    Run(HandshakeTimerTest_KeyExpiry_ClearAllZerosSlots,         "HandshakeTimer 9c: ClearAll zeros all slots");
+    Run(HandshakeTimerTest_KeyExpiry_CallbackFiresAndZerosKeypairs, "HandshakeTimer 9c: callback zeros keypairs");
+    Run(HandshakeTimerTest_KeyExpiry_DoesNotTouchStaticStatic,   "HandshakeTimer 9c: does not touch static_static");
 
     // =============================================================================
     // Future Tests
