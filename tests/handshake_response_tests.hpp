@@ -56,6 +56,13 @@ static bool SetupPeerPair(HandshakePeerPair& pp) {
     std::copy(init_mlkem->public_key.begin(), init_mlkem->public_key.end(),
               pp.initiator.local_static_mlkem_ek.begin());
 
+    // Initiator also needs the raw ML-KEM DK for processing responses (KEM #3)
+    std::size_t init_dk_len = kMlKemDecapsulationKeyBytes;
+    if (EVP_PKEY_get_raw_private_key(init_mlkem->pkey.get(),
+                                     pp.initiator.local_static_mlkem_dk.data(),
+                                     &init_dk_len) != 1)
+        return false;
+
     pp.initiator.remote_static_x25519 = resp_x25519->public_key;
     std::copy(resp_mlkem->public_key.begin(), resp_mlkem->public_key.end(),
               pp.initiator.remote_static_mlkem_ek.begin());
@@ -98,6 +105,14 @@ RunInitiation(HandshakePeerPair& pp, IndexTable& idx) {
 
     if (!ConsumeMessageInitiation(*init_bytes, pp.responder)) return std::nullopt;
     return init_bytes;
+}
+
+// Runs full initiation + response (Create+Consume both sides).
+static bool RunFullHandshake(HandshakePeerPair& pp, IndexTable& idx) {
+    if (!RunInitiation(pp, idx)) return false;
+    auto resp_bytes = CreateMessageResponse(pp.responder, idx);
+    if (!resp_bytes) return false;
+    return ConsumeMessageResponse(*resp_bytes, pp.initiator, idx);
 }
 
 // ============================================================================
@@ -485,6 +500,174 @@ bool E2E_InitiationAndResponse_ChainingKeyConverges() {
         pp.responder.handshake.chaining_key != Blake3Hash{};
 
     return test_helper("1", std::to_string(resp_c_non_trivial));
+}
+
+// ============================================================================
+// ConsumeMessageResponse tests  (DG-243)
+// ============================================================================
+
+// Ticket: function must accept a valid response from the responder
+bool ConsumeResponse_Succeeds() {
+    HandshakePeerPair pp{};
+    if (!SetupPeerPair(pp)) return false;
+    IndexTable idx;
+
+    if (!RunInitiation(pp, idx)) return false;
+    auto resp_bytes = CreateMessageResponse(pp.responder, idx);
+    if (!resp_bytes) return false;
+
+    const bool ok = ConsumeMessageResponse(*resp_bytes, pp.initiator, idx);
+    return test_helper("1", std::to_string(ok));
+}
+
+// Ticket step 12: "Set state to ResponseConsumed"
+bool ConsumeResponse_StateIsResponseConsumed() {
+    HandshakePeerPair pp{};
+    if (!SetupPeerPair(pp)) return false;
+    IndexTable idx;
+
+    if (!RunFullHandshake(pp, idx)) return false;
+
+    const bool correct = pp.initiator.handshake.state == HandshakeStateEnum::ResponseConsumed;
+    return test_helper("1", std::to_string(correct));
+}
+
+// Ticket step 12: C must be updated from the initiation value
+bool ConsumeResponse_ChainingKeyUpdated() {
+    HandshakePeerPair pp{};
+    if (!SetupPeerPair(pp)) return false;
+    IndexTable idx;
+
+    Blake3Hash c_after_init{};
+    if (!RunInitiation(pp, idx)) return false;
+    c_after_init = pp.initiator.handshake.chaining_key;
+
+    auto resp_bytes = CreateMessageResponse(pp.responder, idx);
+    if (!resp_bytes) return false;
+    if (!ConsumeMessageResponse(*resp_bytes, pp.initiator, idx)) return false;
+
+    const bool changed = pp.initiator.handshake.chaining_key != c_after_init;
+    return test_helper("1", std::to_string(changed));
+}
+
+// Ticket step 12: "remote_index = msg.sender_index"
+bool ConsumeResponse_RemoteIndexStored() {
+    HandshakePeerPair pp{};
+    if (!SetupPeerPair(pp)) return false;
+    IndexTable idx;
+
+    if (!RunInitiation(pp, idx)) return false;
+    auto resp_bytes = CreateMessageResponse(pp.responder, idx);
+    if (!resp_bytes) return false;
+
+    const std::uint32_t responder_local_index = pp.responder.handshake.local_index;
+
+    if (!ConsumeMessageResponse(*resp_bytes, pp.initiator, idx)) return false;
+
+    return test_helper(std::to_string(responder_local_index),
+                       std::to_string(pp.initiator.handshake.remote_index));
+}
+
+// Ticket step 13: "Zero all ephemeral private keys — they are no longer needed"
+bool ConsumeResponse_EphemeralX25519PrivateZeroed() {
+    HandshakePeerPair pp{};
+    if (!SetupPeerPair(pp)) return false;
+    IndexTable idx;
+
+    if (!RunFullHandshake(pp, idx)) return false;
+
+    const auto& priv = pp.initiator.handshake.local_ephemeral_x25519_private;
+    const bool all_zero = std::all_of(priv.begin(), priv.end(),
+                                      [](std::uint8_t b) { return b == 0; });
+    return test_helper("1", std::to_string(all_zero));
+}
+
+// Ticket step 13: ephemeral ML-KEM DK must be zeroed
+bool ConsumeResponse_EphemeralMlKemDkZeroed() {
+    HandshakePeerPair pp{};
+    if (!SetupPeerPair(pp)) return false;
+    IndexTable idx;
+
+    if (!RunFullHandshake(pp, idx)) return false;
+
+    const auto& dk = pp.initiator.handshake.local_ephemeral_mlkem_dk;
+    const bool all_zero = std::all_of(dk.begin(), dk.end(),
+                                      [](std::uint8_t b) { return b == 0; });
+    return test_helper("1", std::to_string(all_zero));
+}
+
+// Ticket step 11: "If verification fails ... drop"
+// Flipping a byte in the encrypted_empty tag must cause rejection
+bool ConsumeResponse_TamperedTag_Rejected() {
+    HandshakePeerPair pp{};
+    if (!SetupPeerPair(pp)) return false;
+    IndexTable idx;
+
+    if (!RunInitiation(pp, idx)) return false;
+    auto resp_bytes = CreateMessageResponse(pp.responder, idx);
+    if (!resp_bytes) return false;
+
+    // encrypted_empty tag is at offset 2220..2235
+    (*resp_bytes)[2220] ^= 0xFF;
+
+    const bool rejected = !ConsumeMessageResponse(*resp_bytes, pp.initiator, idx);
+    return test_helper("1", std::to_string(rejected));
+}
+
+// Ticket step 2: "must be in state InitiationCreated"
+bool ConsumeResponse_WrongState_Rejected() {
+    HandshakePeerPair pp{};
+    if (!SetupPeerPair(pp)) return false;
+    IndexTable idx;
+
+    // Initiator has not created an initiation — state is Zeroed
+    auto resp_bytes = CreateMessageResponse(pp.responder, idx);
+    // This will also fail (wrong state on responder), but the point is:
+    // ConsumeMessageResponse with a mismatched/invalid receiver_index or state must fail.
+    // Create a fake response to test state check on initiator.
+    if (!RunInitiation(pp, idx)) return false;
+    auto real_resp = CreateMessageResponse(pp.responder, idx);
+    if (!real_resp) return false;
+
+    // Manually set initiator state to something other than InitiationCreated
+    pp.initiator.handshake.state = HandshakeStateEnum::Zeroed;
+
+    const bool rejected = !ConsumeMessageResponse(*real_resp, pp.initiator, idx);
+    return test_helper("1", std::to_string(rejected));
+}
+
+// Ticket step 1: receiver_index not in index table must be rejected
+bool ConsumeResponse_ReceiverIndexMismatch_Rejected() {
+    HandshakePeerPair pp{};
+    if (!SetupPeerPair(pp)) return false;
+    IndexTable idx;
+
+    if (!RunInitiation(pp, idx)) return false;
+    auto resp_bytes = CreateMessageResponse(pp.responder, idx);
+    if (!resp_bytes) return false;
+
+    // Corrupt receiver_index (bytes 8-11) — won't be found in the table
+    (*resp_bytes)[8] ^= 0xFF;
+
+    const bool rejected = !ConsumeMessageResponse(*resp_bytes, pp.initiator, idx);
+    return test_helper("1", std::to_string(rejected));
+}
+
+// ============================================================================
+// End-to-end: full 4-step handshake convergence
+// ============================================================================
+
+// After all 4 steps, both sides must hold identical chaining key and hash
+bool E2E_FullHandshake_ChainingKeyConverges() {
+    HandshakePeerPair pp{};
+    if (!SetupPeerPair(pp)) return false;
+    IndexTable idx;
+
+    if (!RunFullHandshake(pp, idx)) return false;
+
+    const bool c_match = pp.initiator.handshake.chaining_key == pp.responder.handshake.chaining_key;
+    const bool h_match = pp.initiator.handshake.hash == pp.responder.handshake.hash;
+    return test_helper("1", std::to_string(c_match && h_match));
 }
 
 #endif // _PQVPN_TESTS_HANDSHAKE_RESPONSE_TESTS_HPP_
