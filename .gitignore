@@ -19,3 +19,6 @@ build.ninja
 .claude
 CLAUDE.md
 *.jsonl
+
+# VSCode
+.vscode/*
