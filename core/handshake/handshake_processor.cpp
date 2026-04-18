@@ -10,11 +10,25 @@
 
 #include <openssl/evp.h>
 
+#include <cstring>
 #include <mutex>
 
 namespace core::handshake {
 
 using core::utils::secure_zero;
+using core::utils::ct_memcmp;
+
+// Reconstructs an EVP_PKEY for ML-KEM-768 from 2400 raw decapsulation-key bytes.
+static core::cryptography::ml_kem::EvpPkeyPtr
+RebuildMlKemKey(const std::array<std::uint8_t, kMlKemDecapsulationKeyBytes>& dk) {
+    EVP_PKEY* p = EVP_PKEY_new_raw_private_key_ex(
+        nullptr, "ML-KEM-768", nullptr, dk.data(), dk.size());
+    return core::cryptography::ml_kem::EvpPkeyPtr{p};
+}
+
+// ============================================================================
+// CreateMessageInitiation  (DG-239)
+// ============================================================================
 
 std::optional<std::vector<std::uint8_t>>
 CreateMessageInitiation(Peer& peer, IndexTable& index_table) {
@@ -153,16 +167,272 @@ CreateMessageInitiation(Peer& peer, IndexTable& index_table) {
     return SerializeInitiation(msg);
 }
 
+// ============================================================================
+// ConsumeMessageInitiation  (DG-240)
+// ============================================================================
+
 bool ConsumeMessageInitiation(ConstByteSpan msg, Peer& peer) {
-    (void)msg; (void)peer;
-    return false; // DG-240
+    // Step 1: Parse message — drop silently on wrong size or type
+    auto initiation = DeserializeInitiation(msg.data(), msg.size());
+    if (!initiation) return false;
+
+    // Step 2: Verify mac1 before any expensive crypto
+    // TODO: DG-244 — mac1 verification not yet implemented
+    // VerifyMac1(peer.mac1_key, ...) goes here
+
+    // Step 3: mac2 check if under load
+    // TODO: DG-244 / DG-246 — under-load detection and cookie reply not yet implemented
+
+    // Step 4: Initialize local C and H — do NOT touch peer.handshake yet
+    Blake3Hash C = InitialChainingKey();
+    Blake3Hash H = InitialHash();
+    MixHash(H, peer.local_static_x25519_public);
+    MixHash(H, peer.local_static_mlkem_ek);
+
+    // Step 5: Mix X25519 ephemeral
+    if (!MixKey(C, initiation->ephemeral_x25519)) return false;
+    MixHash(H, initiation->ephemeral_x25519);
+
+    // Step 6: Mix ML-KEM ephemeral EK
+    if (!MixKey(C, initiation->ephemeral_mlkem_ek)) return false;
+    MixHash(H, initiation->ephemeral_mlkem_ek);
+
+    // Step 7: X25519 DH #1 (es): X25519(own_static_priv, initiator_ephemeral_pub)
+    auto dh_es_opt = core::cryptography::x25519::DeriveSharedSecret(
+        peer.local_static_x25519_private, initiation->ephemeral_x25519);
+    if (!dh_es_opt) return false;
+    auto dh_es = *dh_es_opt;
+
+    auto kdf2_1 = KDF2(C, dh_es);
+    secure_zero(dh_es);
+    if (!kdf2_1) return false;
+    C = std::get<0>(*kdf2_1);
+    Blake3Hash dec_key1 = std::get<1>(*kdf2_1);
+    secure_zero(std::get<1>(*kdf2_1));
+
+    // Step 8: ML-KEM KEM #1 — decapsulate ct_es with own static ML-KEM DK
+    auto static_dk = RebuildMlKemKey(peer.local_static_mlkem_dk);
+    if (!static_dk) {
+        secure_zero(dec_key1);
+        return false;
+    }
+    auto ss_kem_es = core::cryptography::ml_kem::Decapsulate(
+        static_dk.get(), initiation->kem_ciphertext_es);
+    static_dk.reset();
+    if (!ss_kem_es) {
+        secure_zero(dec_key1);
+        return false;
+    }
+    if (!MixKey(C, ConstByteSpan{ss_kem_es->data(), ss_kem_es->size()})) {
+        secure_zero(dec_key1);
+        secure_zero(ss_kem_es->data(), ss_kem_es->size());
+        return false;
+    }
+    secure_zero(ss_kem_es->data(), ss_kem_es->size());
+    MixHash(H, initiation->kem_ciphertext_es);
+
+    // Step 9: Decrypt initiator's static X25519 — first real validation gate
+    auto dec_static_x25519 = DecryptAndHash(H, dec_key1, initiation->encrypted_static_x25519);
+    secure_zero(dec_key1);
+    if (!dec_static_x25519 || dec_static_x25519->size() != 32) return false;
+
+    core::cryptography::x25519::PublicKey initiator_static_x25519{};
+    std::copy(dec_static_x25519->begin(), dec_static_x25519->end(),
+              initiator_static_x25519.begin());
+
+    // Step 10: Decrypt initiator's static ML-KEM EK
+    auto kdf2_2 = KDF2(C, ConstByteSpan{});
+    if (!kdf2_2) return false;
+    C = std::get<0>(*kdf2_2);
+    Blake3Hash dec_key2 = std::get<1>(*kdf2_2);
+    secure_zero(std::get<1>(*kdf2_2));
+
+    auto dec_static_mlkem = DecryptAndHash(H, dec_key2, initiation->encrypted_static_mlkem);
+    secure_zero(dec_key2);
+    if (!dec_static_mlkem || dec_static_mlkem->size() != kMlKemEncapsulationKeyBytes)
+        return false;
+
+    // Step 11: Identity check — verify decrypted initiator key matches configured peer
+    // In a multi-peer device this would be a table lookup; here we verify against the
+    // single known peer. Only a valid initiator can produce a matching ciphertext.
+    if (!ct_memcmp(initiator_static_x25519, peer.remote_static_x25519)) return false;
+
+    // Step 12: X25519 DH #2 (ss)
+    auto kdf2_3 = KDF2(C, peer.precomputed_static_static);
+    if (!kdf2_3) return false;
+    C = std::get<0>(*kdf2_3);
+    Blake3Hash dec_key3 = std::get<1>(*kdf2_3);
+    secure_zero(std::get<1>(*kdf2_3));
+
+    // Step 13: Decrypt timestamp
+    auto dec_ts = DecryptAndHash(H, dec_key3, initiation->encrypted_timestamp);
+    secure_zero(dec_key3);
+    if (!dec_ts || dec_ts->size() != 12) return false;
+
+    std::array<std::uint8_t, 12> timestamp{};
+    std::copy(dec_ts->begin(), dec_ts->end(), timestamp.begin());
+
+    // Step 14: Anti-replay — timestamp must be strictly greater than last seen
+    const auto now = std::chrono::system_clock::now();
+    {
+        std::lock_guard lock(peer.handshake.mutex);
+
+        if (std::memcmp(timestamp.data(), peer.handshake.last_timestamp.data(), 12) <= 0)
+            return false;
+
+        // Rate-limit: at most one consumed initiation per kHandshakeInitiationRate (20 ms)
+        const auto epoch = std::chrono::system_clock::time_point{};
+        if (peer.handshake.last_initiation_consumption != epoch) {
+            if (now - peer.handshake.last_initiation_consumption < kHandshakeInitiationRate)
+                return false;
+        }
+
+        // Step 15: Commit state — all checks passed
+        peer.handshake.chaining_key = C;
+        peer.handshake.hash         = H;
+        peer.handshake.remote_ephemeral_x25519 = initiation->ephemeral_x25519;
+        peer.handshake.remote_ephemeral_mlkem  = initiation->ephemeral_mlkem_ek;
+        std::copy(dec_static_mlkem->begin(), dec_static_mlkem->end(),
+                  peer.handshake.remote_static_mlkem.begin());
+        peer.handshake.remote_index             = initiation->sender_index;
+        peer.handshake.last_timestamp           = timestamp;
+        peer.handshake.last_initiation_consumption = now;
+        peer.handshake.state = HandshakeStateEnum::InitiationConsumed;
+    }
+
+    return true;
 }
+
+// ============================================================================
+// CreateMessageResponse  (DG-242)
+// ============================================================================
 
 std::optional<std::vector<std::uint8_t>>
 CreateMessageResponse(Peer& peer, IndexTable& index_table) {
-    (void)peer; (void)index_table;
-    return std::nullopt; // DG-242
+    // Load and verify state under lock, then work with local copies
+    Blake3Hash C, H;
+    std::array<std::uint8_t, 32>   remote_ephemeral_x25519{};
+    std::array<std::uint8_t, 1184> remote_ephemeral_mlkem{};
+    std::array<std::uint8_t, 1184> remote_static_mlkem{};
+    std::uint32_t remote_index = 0;
+
+    {
+        std::lock_guard lock(peer.handshake.mutex);
+        if (peer.handshake.state != HandshakeStateEnum::InitiationConsumed)
+            return std::nullopt;
+        C = peer.handshake.chaining_key;
+        H = peer.handshake.hash;
+        remote_ephemeral_x25519 = peer.handshake.remote_ephemeral_x25519;
+        remote_ephemeral_mlkem  = peer.handshake.remote_ephemeral_mlkem;
+        remote_static_mlkem     = peer.handshake.remote_static_mlkem;
+        remote_index            = peer.handshake.remote_index;
+    }
+
+    // Step 1: Generate responder ephemeral X25519 keypair
+    auto e_r = core::cryptography::x25519::GenerateKeyPair();
+    if (!e_r) return std::nullopt;
+
+    // Step 2: Mix responder ephemeral into transcript
+    if (!MixKey(C, e_r->public_key)) return std::nullopt;
+    MixHash(H, e_r->public_key);
+
+    // Step 3: X25519 DH #3 (ee) — responder ephemeral × initiator ephemeral
+    auto dh_ee_opt = core::cryptography::x25519::DeriveSharedSecret(
+        e_r->private_key, remote_ephemeral_x25519);
+    if (!dh_ee_opt) return std::nullopt;
+    auto dh_ee = *dh_ee_opt;
+    if (!MixKey(C, dh_ee)) {
+        secure_zero(dh_ee);
+        return std::nullopt;
+    }
+    secure_zero(dh_ee);
+
+    // Step 4: ML-KEM KEM #2 — encapsulate to initiator's ephemeral ML-KEM key
+    auto encaps_ee = core::cryptography::ml_kem::Encapsulate(
+        remote_ephemeral_mlkem,
+        core::cryptography::ml_kem::ParameterSet::ML_KEM_768);
+    if (!encaps_ee) return std::nullopt;
+    if (!MixKey(C, ConstByteSpan{encaps_ee->shared_secret.data(), encaps_ee->shared_secret.size()})) {
+        secure_zero(encaps_ee->shared_secret.data(), encaps_ee->shared_secret.size());
+        return std::nullopt;
+    }
+    secure_zero(encaps_ee->shared_secret.data(), encaps_ee->shared_secret.size());
+    MixHash(H, ConstByteSpan{encaps_ee->ciphertext.data(), encaps_ee->ciphertext.size()});
+
+    // Step 5: X25519 DH #4 (se) — responder ephemeral × initiator static
+    auto dh_se_opt = core::cryptography::x25519::DeriveSharedSecret(
+        e_r->private_key, peer.remote_static_x25519);
+    if (!dh_se_opt) return std::nullopt;
+    auto dh_se = *dh_se_opt;
+    if (!MixKey(C, dh_se)) {
+        secure_zero(dh_se);
+        return std::nullopt;
+    }
+    secure_zero(dh_se);
+
+    // Zero responder ephemeral private key — no longer needed after DH ops
+    secure_zero(e_r->private_key);
+
+    // Step 6: ML-KEM KEM #3 — encapsulate to initiator's static ML-KEM key
+    auto encaps_se = core::cryptography::ml_kem::Encapsulate(
+        remote_static_mlkem,
+        core::cryptography::ml_kem::ParameterSet::ML_KEM_768);
+    if (!encaps_se) return std::nullopt;
+    if (!MixKey(C, ConstByteSpan{encaps_se->shared_secret.data(), encaps_se->shared_secret.size()})) {
+        secure_zero(encaps_se->shared_secret.data(), encaps_se->shared_secret.size());
+        return std::nullopt;
+    }
+    secure_zero(encaps_se->shared_secret.data(), encaps_se->shared_secret.size());
+    MixHash(H, ConstByteSpan{encaps_se->ciphertext.data(), encaps_se->ciphertext.size()});
+
+    // Step 7: Mix PSK — KDF3 produces new C, a hash-mix value tau, and an encryption key
+    auto kdf3 = KDF3(C, peer.preshared_key);
+    if (!kdf3) return std::nullopt;
+    C = std::get<0>(*kdf3);
+    Blake3Hash tau     = std::get<1>(*kdf3);
+    Blake3Hash enc_key = std::get<2>(*kdf3);
+    secure_zero(std::get<1>(*kdf3));
+    secure_zero(std::get<2>(*kdf3));
+    MixHash(H, tau);
+    secure_zero(tau);
+
+    // Step 8: Encrypt empty payload — the 16-byte tag authenticates the full transcript
+    auto encrypted_empty = EncryptAndHash(H, enc_key, ConstByteSpan{});
+    secure_zero(enc_key);
+    if (!encrypted_empty || encrypted_empty->size() != 16) return std::nullopt;
+
+    // Step 9: Assign sender index
+    const std::uint32_t local_index = index_table.NewIndex(&peer, &peer.handshake);
+
+    // Step 10: Build response message
+    ResponseMsg msg{};
+    msg.sender_index   = local_index;
+    msg.receiver_index = remote_index;
+    std::copy(e_r->public_key.begin(), e_r->public_key.end(),
+              msg.ephemeral_x25519.begin());
+    std::copy(encaps_ee->ciphertext.begin(), encaps_ee->ciphertext.end(),
+              msg.kem_ciphertext_ee.begin());
+    std::copy(encaps_se->ciphertext.begin(), encaps_se->ciphertext.end(),
+              msg.kem_ciphertext_se.begin());
+    std::copy(encrypted_empty->begin(), encrypted_empty->end(),
+              msg.encrypted_empty.begin());
+    // mac1/mac2 are zero — filled by MAC system (DG-244) before sending
+
+    // Step 11: Commit state
+    {
+        std::lock_guard lock(peer.handshake.mutex);
+        peer.handshake.chaining_key = C;
+        peer.handshake.hash         = H;
+        peer.handshake.local_index  = local_index;
+        peer.handshake.state        = HandshakeStateEnum::ResponseCreated;
+    }
+
+    return SerializeResponse(msg);
 }
+
+// ============================================================================
+// Stubs for remaining message handlers
+// ============================================================================
 
 bool ConsumeMessageResponse(ConstByteSpan msg, Peer& peer, IndexTable& index_table) {
     (void)msg; (void)peer; (void)index_table;
