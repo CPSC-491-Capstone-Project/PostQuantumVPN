@@ -554,8 +554,72 @@ bool ConsumeMessageResponse(ConstByteSpan msg, Peer& peer, IndexTable& index_tab
 }
 
 bool DeriveSessionKeys(Peer& peer, IndexTable& index_table, bool is_initiator) {
-    (void)peer; (void)index_table; (void)is_initiator;
-    return false; // DG-250
+    // Load C and index fields under lock
+    Blake3Hash C{};
+    std::uint32_t local_index  = 0;
+    std::uint32_t remote_index = 0;
+    {
+        std::lock_guard lock(peer.handshake.mutex);
+        const auto expected = is_initiator
+            ? HandshakeStateEnum::ResponseConsumed
+            : HandshakeStateEnum::ResponseCreated;
+        if (peer.handshake.state != expected) return false;
+
+        C            = peer.handshake.chaining_key;
+        local_index  = peer.handshake.local_index;
+        remote_index = peer.handshake.remote_index;
+    }
+
+    // Derive two transport keys from the final chaining key
+    auto kdf2 = KDF2(C, ConstByteSpan{});
+    secure_zero(C);
+    if (!kdf2) return false;
+
+    Blake3Hash T0 = std::get<0>(*kdf2);
+    Blake3Hash T1 = std::get<1>(*kdf2);
+    secure_zero(std::get<0>(*kdf2));
+    secure_zero(std::get<1>(*kdf2));
+
+    // Build keypair — initiator sends on T0, receives on T1; responder is swapped
+    auto kp = std::make_unique<Keypair>();
+    if (is_initiator) {
+        kp->send_key    = T0;
+        kp->receive_key = T1;
+    } else {
+        kp->receive_key = T0;
+        kp->send_key    = T1;
+    }
+    secure_zero(T0);
+    secure_zero(T1);
+
+    kp->is_initiator = is_initiator;
+    kp->created      = std::chrono::system_clock::now();
+    kp->local_index  = local_index;
+    kp->remote_index = remote_index;
+
+    // Register keypair in the index table (replaces handshake entry)
+    Keypair* kp_raw = kp.get();
+    index_table.SwapHandshakeToKeypair(local_index, kp_raw);
+
+    // Install keypair into the peer's session slots
+    if (is_initiator) {
+        peer.keypairs.SetCurrent(std::move(kp));
+    } else {
+        peer.keypairs.SetNext(std::move(kp));
+    }
+
+    // Security-critical cleanup — zero handshake state, preserve anti-replay fields
+    {
+        std::lock_guard lock(peer.handshake.mutex);
+        secure_zero(peer.handshake.chaining_key);
+        secure_zero(peer.handshake.hash);
+        secure_zero(peer.handshake.local_ephemeral_x25519_private);
+        secure_zero(peer.handshake.local_ephemeral_mlkem_dk);
+        peer.handshake.state = HandshakeStateEnum::Zeroed;
+        // last_timestamp and precomputed_static_static are intentionally preserved
+    }
+
+    return true;
 }
 
 } // namespace core::handshake

@@ -19,6 +19,7 @@
 #include "blake3_tests.hpp"
 #include "chacha20_poly1305_tests.hpp"
 #include "event_poller_tests.hpp"
+#include "derive_session_keys_tests.hpp"
 #include "handshake_helper_tests.hpp"
 #include "handshake_initiation_tests.hpp"
 #include "handshake_response_tests.hpp"
@@ -564,6 +565,26 @@ int main(int argc, char* argv[]) {
     Run(ConsumeResponse_WrongState_Rejected,           "ConsumeResponse: wrong state rejected");
     Run(ConsumeResponse_ReceiverIndexMismatch_Rejected,"ConsumeResponse: receiver index mismatch rejected");
     Run(E2E_FullHandshake_ChainingKeyConverges,        "E2E: full handshake C and H converge");
+
+    // =============================================================================
+    // DeriveSessionKeys Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(DeriveSessionKeys_Succeeds,                          "DeriveSessionKeys: full simulation succeeds");
+    Run(DeriveSessionKeys_Initiator_KeypairInCurrent,        "DeriveSessionKeys: initiator keypair in Current");
+    Run(DeriveSessionKeys_Responder_KeypairInNext,           "DeriveSessionKeys: responder keypair in Next");
+    Run(DeriveSessionKeys_InitiatorSendEqualsResponderReceive,"DeriveSessionKeys: i.send == r.receive");
+    Run(DeriveSessionKeys_InitiatorReceiveEqualsResponderSend,"DeriveSessionKeys: i.receive == r.send");
+    Run(DeriveSessionKeys_KeysAreNonZero,                    "DeriveSessionKeys: keys are non-zero");
+    Run(DeriveSessionKeys_IsInitiatorFlag,                   "DeriveSessionKeys: is_initiator flag");
+    Run(DeriveSessionKeys_IndicesCrossMatch,                 "DeriveSessionKeys: indices cross-match");
+    Run(DeriveSessionKeys_IndexTableSwappedToKeypair,        "DeriveSessionKeys: index table swapped");
+    Run(DeriveSessionKeys_HandshakeStateZeroed,              "DeriveSessionKeys: handshake state zeroed");
+    Run(DeriveSessionKeys_ChainingKeyZeroed,                 "DeriveSessionKeys: chaining key zeroed");
+    Run(DeriveSessionKeys_HashZeroed,                        "DeriveSessionKeys: hash zeroed");
+    Run(DeriveSessionKeys_WrongState_Rejected,               "DeriveSessionKeys: wrong state rejected");
+    Run(DeriveSessionKeys_KeysAreUnique,                     "DeriveSessionKeys: keys are unique per handshake");
+    Run(DeriveSessionKeys_OneServer_FiveClients_Concurrent,  "DeriveSessionKeys: 1 server + 5 clients concurrent");
 
     // =============================================================================
     // Future Tests
