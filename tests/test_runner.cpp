@@ -21,6 +21,7 @@
 #include "event_poller_tests.hpp"
 #include "handshake_helper_tests.hpp"
 #include "handshake_initiation_tests.hpp"
+#include "handshake_response_tests.hpp"
 #include "handshake_timer_tests.hpp"
 #include "hex_helpers_tests.hpp"
 #include "hkdf_tests.hpp"
@@ -515,6 +516,39 @@ int main(int argc, char* argv[]) {
     Run(CreateInitiation_LocalIndexNonZero,                 "CreateInitiation: local index != 0");
     Run(CreateInitiation_EphemeralKeysAreRandom,            "CreateInitiation: ephemeral keys are random");
     Run(CreateInitiation_MessageDeserializes,               "CreateInitiation: message deserializes");
+
+    // =============================================================================
+    // ConsumeMessageInitiation Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(ConsumeInitiation_Succeeds,                   "ConsumeInitiation: succeeds");
+    Run(ConsumeInitiation_StateIsInitiationConsumed,  "ConsumeInitiation: state = InitiationConsumed");
+    Run(ConsumeInitiation_ChainingKeyUpdated,         "ConsumeInitiation: chaining key updated");
+    Run(ConsumeInitiation_HashUpdated,                "ConsumeInitiation: hash updated");
+    Run(ConsumeInitiation_RemoteIndexStored,          "ConsumeInitiation: remote index stored");
+    Run(ConsumeInitiation_EphemeralX25519Stored,      "ConsumeInitiation: ephemeral X25519 stored");
+    Run(ConsumeInitiation_EphemeralMlKemEkStored,     "ConsumeInitiation: ephemeral ML-KEM EK stored");
+    Run(ConsumeInitiation_TimestampStored,            "ConsumeInitiation: timestamp stored");
+    Run(ConsumeInitiation_TamperedCiphertext_Rejected,"ConsumeInitiation: tampered ct rejected");
+    Run(ConsumeInitiation_UnknownInitiator_Rejected,  "ConsumeInitiation: unknown initiator rejected");
+    Run(ConsumeInitiation_ReplayRejected,             "ConsumeInitiation: replay rejected");
+    Run(ConsumeInitiation_ChainingKeyConverges,       "ConsumeInitiation: C and H converge");
+
+    // =============================================================================
+    // CreateMessageResponse Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(CreateResponse_Succeeds,                   "CreateResponse: succeeds");
+    Run(CreateResponse_MessageSize,                "CreateResponse: message is 2268 bytes");
+    Run(CreateResponse_TypeField,                  "CreateResponse: type field = 2");
+    Run(CreateResponse_SenderIndexMatchesState,    "CreateResponse: sender index matches state");
+    Run(CreateResponse_ReceiverIndexMatchesInitiator, "CreateResponse: receiver index = initiator index");
+    Run(CreateResponse_StateIsResponseCreated,     "CreateResponse: state = ResponseCreated");
+    Run(CreateResponse_MacFieldsAreZero,           "CreateResponse: MAC fields are zero");
+    Run(CreateResponse_IndexTableEntryExists,      "CreateResponse: index table entry exists");
+    Run(CreateResponse_WrongState_Rejected,        "CreateResponse: wrong state rejected");
+    Run(CreateResponse_MessageDeserializes,        "CreateResponse: message deserializes");
+    Run(E2E_InitiationAndResponse_ChainingKeyConverges, "E2E: initiation + response C non-trivial");
 
     // =============================================================================
     // Future Tests
