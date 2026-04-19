@@ -2,7 +2,9 @@
 #include "logger.hpp"
 
 #include <arpa/inet.h>
+#include <cstdlib>
 #include <cstring>
+#include <cerrno>
 #include <fcntl.h>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -98,7 +100,7 @@ namespace core::network {
         }
 
         BytesTransferred len = ::read(handle_, buf.data(), buf.size());
-        if (len < 0) {
+        if (len < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
             Logger::Error("TunDevice: Read failed for handle: " + std::to_string(handle_));
         }
 
@@ -125,45 +127,25 @@ namespace core::network {
             return false;
         }
 
-        int fd = ::socket(AF_INET, SOCK_DGRAM, 0);
-        if (fd < 0) {
-            Logger::Error("TunDevice: BringUp failed to open control socket");
+        // Use iproute2 (rtnetlink-backed) rather than deprecated ioctl SIOCSIFADDR.
+        // This reliably creates the connected /24 route that the kernel uses to route
+        // traffic destined for the subnet through this interface.
+        std::string ip_str = ip.ToString();
+
+        std::string addr_cmd = "ip addr add " + ip_str + "/24 dev " + ifname_ + " >/dev/null 2>&1";
+        if (::system(addr_cmd.c_str()) != 0) {
+            Logger::Error("TunDevice: BringUp 'ip addr add " + ip_str + "/24 dev " + ifname_ + "' failed");
             return false;
         }
 
-        // Set IP address
-        struct ifreq ifr{};
-        strncpy(ifr.ifr_name, ifname_.c_str(), IFNAMSIZ - 1);
-        auto* addr = reinterpret_cast<struct sockaddr_in*>(&ifr.ifr_addr);
-        addr->sin_family = AF_INET;
-        std::uint32_t ip_net = ip.ToNetworkOrder();
-        memcpy(&addr->sin_addr, &ip_net, 4);
-        if (::ioctl(fd, SIOCSIFADDR, &ifr) < 0) {
-            Logger::Error("TunDevice: SIOCSIFADDR failed for " + ifname_);
-            ::close(fd);
+        std::string up_cmd = "ip link set " + ifname_ + " up >/dev/null 2>&1";
+        if (::system(up_cmd.c_str()) != 0) {
+            Logger::Error("TunDevice: BringUp 'ip link set " + ifname_ + " up' failed");
             return false;
         }
 
-        // Set /24 netmask — causes the kernel to install a connected subnet route
-        // when the interface is brought UP below.
-        memset(&ifr, 0, sizeof(ifr));
-        strncpy(ifr.ifr_name, ifname_.c_str(), IFNAMSIZ - 1);
-        auto* mask = reinterpret_cast<struct sockaddr_in*>(&ifr.ifr_netmask);
-        mask->sin_family = AF_INET;
-        std::uint32_t mask_net = IPv4(255, 255, 255, 0).ToNetworkOrder();
-        memcpy(&mask->sin_addr, &mask_net, 4);
-        ::ioctl(fd, SIOCSIFNETMASK, &ifr);
-
-        // Bring UP + RUNNING — subnet route is created here
-        memset(&ifr, 0, sizeof(ifr));
-        strncpy(ifr.ifr_name, ifname_.c_str(), IFNAMSIZ - 1);
-        ::ioctl(fd, SIOCGIFFLAGS, &ifr);
-        ifr.ifr_flags |= IFF_UP | IFF_RUNNING;
-        bool ok = (::ioctl(fd, SIOCSIFFLAGS, &ifr) == 0);
-        if (!ok) Logger::Error("TunDevice: SIOCSIFFLAGS failed for " + ifname_);
-
-        ::close(fd);
-        return ok;
+        Logger::Info("TunDevice: BringUp " + ifname_ + " " + ip_str + "/24");
+        return true;
     }
 
     bool TunDevice::Exists(std::string_view name) {

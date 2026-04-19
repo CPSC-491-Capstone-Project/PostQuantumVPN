@@ -17,9 +17,12 @@
 #include "logger.hpp"
 
 #include <array>
+#include <atomic>
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace core::network;
@@ -207,7 +210,7 @@ bool TunDeviceTest_Write_InjectAndReceive() {
     if (!poller.Add(udp.GetHandle(), EventMask::Readable))     { Logger::Error("TunDeviceTest_Write_InjectAndReceive: poller Add failed"); return false; }
 
     const std::array<uint8_t, 6> payload{0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
-    auto pkt = TunDevice::BuildUdpPacket(kTunIP, kTunIP, 9999, dst_port, payload);
+    auto pkt = TunDevice::BuildUdpPacket(kTunDst, kTunIP, 9999, dst_port, payload);
 
     BytesTransferred written = dev.Write(pkt);
     if (written != static_cast<BytesTransferred>(pkt.size())) {
@@ -254,6 +257,12 @@ bool TunDeviceTest_Read_CaptureOutbound() {
     if (!dev.Open(kTunIface))        { Logger::Error("TunDeviceTest_Read_CaptureOutbound: Open failed"); return false; }
     if (!dev.SetNonBlocking())       { Logger::Error("TunDeviceTest_Read_CaptureOutbound: SetNonBlocking failed"); return false; }
     if (!dev.BringUp(kTunIP))        { Logger::Error("TunDeviceTest_Read_CaptureOutbound: BringUp failed"); return false; }
+
+    // Drain kernel-generated packets (IGMP membership reports) placed on TUN fd during BringUp
+    {
+        std::vector<uint8_t> drain(4096);
+        while (dev.Read(drain) > 0) {}
+    }
 
     // Poll the TUN fd so we don't block forever
     EventPoller poller;
@@ -320,7 +329,7 @@ bool TunDeviceTest_Write_LargePacket() {
     std::vector<uint8_t> big(1400);
     for (std::size_t i = 0; i < big.size(); ++i) big[i] = static_cast<uint8_t>(i & 0xFF);
 
-    auto pkt = TunDevice::BuildUdpPacket(kTunIP, kTunIP, 9998, dst_port, big);
+    auto pkt = TunDevice::BuildUdpPacket(kTunDst, kTunIP, 9998, dst_port, big);
     BytesTransferred written = dev.Write(pkt);
     if (written != static_cast<BytesTransferred>(pkt.size())) {
         Logger::Error("TunDeviceTest_Write_LargePacket: Write returned " + std::to_string(written));
@@ -365,6 +374,12 @@ bool TunDeviceTest_EventPoller_Integration() {
     if (!dev.Open(kTunIface))  { Logger::Error("TunDeviceTest_EventPoller: Open failed"); return false; }
     if (!dev.SetNonBlocking()) { Logger::Error("TunDeviceTest_EventPoller: SetNonBlocking failed"); return false; }
     if (!dev.BringUp(kTunIP))  { Logger::Error("TunDeviceTest_EventPoller: BringUp failed"); return false; }
+
+    // Drain kernel-generated packets (IGMP membership reports) placed on TUN fd during BringUp
+    {
+        std::vector<uint8_t> drain(4096);
+        while (dev.Read(drain) > 0) {}
+    }
 
     EventPoller poller;
     if (!poller.Open())                                       { Logger::Error("TunDeviceTest_EventPoller: poller Open failed"); return false; }
