@@ -333,7 +333,11 @@ int main(int argc, char* argv[]) {
     Run(TunDeviceTest_Read_CaptureOutbound,   "TunDevice: read capture outbound");
     Run(TunDeviceTest_Write_LargePacket,      "TunDevice: write 1400-byte packet");
     Run(TunDeviceTest_EventPoller_Integration,"TunDevice: EventPoller integration");
-    Run(TunDeviceTest_OperationsOnClosed,     "TunDevice: ops on closed device");
+    Run(TunDeviceTest_OperationsOnClosed,          "TunDevice: ops on closed device");
+    Run(TunDeviceTest_BurstInbound,               "TunDevice: burst 100 inbound packets");
+    Run(TunDeviceTest_MultiDestinationPorts,      "TunDevice: multi-destination port routing");
+    Run(TunDeviceTest_Multithread_ParallelInject, "TunDevice: 4-thread parallel inject");
+    Run(TunDeviceTest_Multithread_Bidirectional,  "TunDevice: concurrent bidirectional");
 
     // =============================================================================
     // UDP Socket Tests

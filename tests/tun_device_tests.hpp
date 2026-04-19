@@ -438,4 +438,305 @@ bool TunDeviceTest_OperationsOnClosed() {
     return true;
 }
 
+// =============================================================================
+// Test 12: Burst inbound — 100 packets injected back-to-back, all delivered
+//
+// Verifies the kernel's TUN receive queue and UDP socket buffer handle a burst
+// without dropping packets — important when a VPN server handles many clients.
+// =============================================================================
+bool TunDeviceTest_BurstInbound() {
+    if (!TunTest_IsPrivileged()) return false;
+    if (TunDevice::Exists(kTunIface)) { Logger::Error("TunDeviceTest_BurstInbound: interface pre-exists"); return false; }
+
+    TunDevice dev;
+    if (!dev.Open(kTunIface)) { Logger::Error("TunDeviceTest_BurstInbound: Open failed"); return false; }
+    if (!dev.BringUp(kTunIP)) { Logger::Error("TunDeviceTest_BurstInbound: BringUp failed"); return false; }
+
+    UDPSocket udp;
+    if (!udp.Open() || !udp.Bind(kTunIP, 0) || !udp.SetNonBlocking()) {
+        Logger::Error("TunDeviceTest_BurstInbound: socket setup failed");
+        return false;
+    }
+    const uint16_t dst_port = udp.GetLocalEndpoint().value().port;
+
+    EventPoller poller;
+    if (!poller.Open() || !poller.Add(udp.GetHandle(), EventMask::Readable)) {
+        Logger::Error("TunDeviceTest_BurstInbound: poller setup failed");
+        return false;
+    }
+
+    static constexpr int kCount = 100;
+
+    for (int i = 0; i < kCount; ++i) {
+        std::array<uint8_t, 2> payload{static_cast<uint8_t>(i >> 8), static_cast<uint8_t>(i)};
+        auto pkt = TunDevice::BuildUdpPacket(kTunDst, kTunIP, 9995, dst_port, payload);
+        dev.Write(pkt);
+    }
+
+    std::vector<uint8_t> buf(256);
+    int received = 0;
+    while (received < kCount) {
+        std::array<PollEvent, 2> ev{};
+        if (poller.Poll(ev, 3000) < 1) {
+            Logger::Error("TunDeviceTest_BurstInbound: timed out at "
+                          + std::to_string(received) + "/" + std::to_string(kCount));
+            return false;
+        }
+        while (udp.ReceiveFrom(buf)) ++received;
+    }
+
+    Logger::Info("TunDeviceTest_BurstInbound: " + std::to_string(received) + "/" + std::to_string(kCount) + " packets delivered");
+    return true;
+}
+
+// =============================================================================
+// Test 13: Multiple destination ports — packets routed to the correct socket
+//
+// Simulates multiple local applications (3 different ports) receiving traffic
+// from the same VPN peer (kTunDst).  Each socket must receive exactly its share.
+// =============================================================================
+bool TunDeviceTest_MultiDestinationPorts() {
+    if (!TunTest_IsPrivileged()) return false;
+    if (TunDevice::Exists(kTunIface)) { Logger::Error("TunDeviceTest_MultiDestinationPorts: interface pre-exists"); return false; }
+
+    TunDevice dev;
+    if (!dev.Open(kTunIface)) { Logger::Error("TunDeviceTest_MultiDestinationPorts: Open failed"); return false; }
+    if (!dev.BringUp(kTunIP)) { Logger::Error("TunDeviceTest_MultiDestinationPorts: BringUp failed"); return false; }
+
+    static constexpr int kSockets   = 3;
+    static constexpr int kPerSocket = 20;
+    static constexpr int kTotal     = kSockets * kPerSocket;
+
+    std::array<UDPSocket, kSockets> socks{};
+    std::array<uint16_t,  kSockets> ports{};
+
+    for (int s = 0; s < kSockets; ++s) {
+        if (!socks[static_cast<std::size_t>(s)].Open()
+         || !socks[static_cast<std::size_t>(s)].Bind(kTunIP, 0)
+         || !socks[static_cast<std::size_t>(s)].SetNonBlocking()) {
+            Logger::Error("TunDeviceTest_MultiDestinationPorts: socket " + std::to_string(s) + " setup failed");
+            return false;
+        }
+        ports[static_cast<std::size_t>(s)] = socks[static_cast<std::size_t>(s)].GetLocalEndpoint().value().port;
+    }
+
+    for (int s = 0; s < kSockets; ++s) {
+        for (int i = 0; i < kPerSocket; ++i) {
+            std::array<uint8_t, 2> payload{static_cast<uint8_t>(s), static_cast<uint8_t>(i)};
+            auto pkt = TunDevice::BuildUdpPacket(kTunDst, kTunIP, 9994, ports[static_cast<std::size_t>(s)], payload);
+            dev.Write(pkt);
+        }
+    }
+
+    EventPoller poller;
+    if (!poller.Open()) { Logger::Error("TunDeviceTest_MultiDestinationPorts: poller Open failed"); return false; }
+    for (int s = 0; s < kSockets; ++s) {
+        if (!poller.Add(socks[static_cast<std::size_t>(s)].GetHandle(), EventMask::Readable)) {
+            Logger::Error("TunDeviceTest_MultiDestinationPorts: poller Add " + std::to_string(s) + " failed");
+            return false;
+        }
+    }
+
+    std::array<int, kSockets> counts{};
+    int total = 0;
+    std::vector<uint8_t> buf(256);
+
+    while (total < kTotal) {
+        std::array<PollEvent, kSockets + 1> ev{};
+        if (poller.Poll(ev, 3000) < 1) {
+            Logger::Error("TunDeviceTest_MultiDestinationPorts: timed out at "
+                          + std::to_string(total) + "/" + std::to_string(kTotal));
+            return false;
+        }
+        for (int s = 0; s < kSockets; ++s) {
+            while (socks[static_cast<std::size_t>(s)].ReceiveFrom(buf)) {
+                ++counts[static_cast<std::size_t>(s)];
+                ++total;
+            }
+        }
+    }
+
+    for (int s = 0; s < kSockets; ++s) {
+        if (counts[static_cast<std::size_t>(s)] != kPerSocket) {
+            Logger::Error("TunDeviceTest_MultiDestinationPorts: socket " + std::to_string(s)
+                          + " got " + std::to_string(counts[static_cast<std::size_t>(s)])
+                          + ", expected " + std::to_string(kPerSocket));
+            return false;
+        }
+    }
+
+    Logger::Info("TunDeviceTest_MultiDestinationPorts: " + std::to_string(total)
+                 + " packets correctly routed to " + std::to_string(kSockets) + " sockets");
+    return true;
+}
+
+// =============================================================================
+// Test 14: Parallel injection — 4 threads each inject 25 packets concurrently
+//
+// Simulates multiple VPN worker threads pushing decrypted packets into the TUN
+// simultaneously.  All 100 packets must arrive at the receiving socket.
+// =============================================================================
+bool TunDeviceTest_Multithread_ParallelInject() {
+    if (!TunTest_IsPrivileged()) return false;
+    if (TunDevice::Exists(kTunIface)) { Logger::Error("TunDeviceTest_Multithread_ParallelInject: interface pre-exists"); return false; }
+
+    TunDevice dev;
+    if (!dev.Open(kTunIface)) { Logger::Error("TunDeviceTest_Multithread_ParallelInject: Open failed"); return false; }
+    if (!dev.BringUp(kTunIP)) { Logger::Error("TunDeviceTest_Multithread_ParallelInject: BringUp failed"); return false; }
+
+    UDPSocket udp;
+    if (!udp.Open() || !udp.Bind(kTunIP, 0) || !udp.SetNonBlocking()) {
+        Logger::Error("TunDeviceTest_Multithread_ParallelInject: socket setup failed");
+        return false;
+    }
+    const uint16_t dst_port = udp.GetLocalEndpoint().value().port;
+
+    EventPoller poller;
+    if (!poller.Open() || !poller.Add(udp.GetHandle(), EventMask::Readable)) {
+        Logger::Error("TunDeviceTest_Multithread_ParallelInject: poller setup failed");
+        return false;
+    }
+
+    static constexpr int kThreads   = 4;
+    static constexpr int kPerThread = 25;
+    static constexpr int kTotal     = kThreads * kPerThread;
+
+    std::atomic<int> write_errors{0};
+    std::vector<std::thread> workers;
+    workers.reserve(kThreads);
+
+    for (int t = 0; t < kThreads; ++t) {
+        workers.emplace_back([&dev, &write_errors, dst_port, t]() {
+            for (int i = 0; i < kPerThread; ++i) {
+                std::array<uint8_t, 3> payload{
+                    static_cast<uint8_t>(t),
+                    static_cast<uint8_t>(i),
+                    0xCC
+                };
+                auto pkt = TunDevice::BuildUdpPacket(
+                    kTunDst, kTunIP,
+                    static_cast<uint16_t>(9990 + t),
+                    dst_port, payload);
+                if (dev.Write(pkt) != static_cast<BytesTransferred>(pkt.size()))
+                    ++write_errors;
+            }
+        });
+    }
+
+    for (auto& w : workers) w.join();
+
+    if (write_errors > 0) {
+        Logger::Error("TunDeviceTest_Multithread_ParallelInject: "
+                      + std::to_string(write_errors.load()) + " write errors");
+        return false;
+    }
+
+    std::vector<uint8_t> buf(256);
+    int received = 0;
+    while (received < kTotal) {
+        std::array<PollEvent, 2> ev{};
+        if (poller.Poll(ev, 5000) < 1) {
+            Logger::Error("TunDeviceTest_Multithread_ParallelInject: timed out at "
+                          + std::to_string(received) + "/" + std::to_string(kTotal));
+            return false;
+        }
+        while (udp.ReceiveFrom(buf)) ++received;
+    }
+
+    Logger::Info("TunDeviceTest_Multithread_ParallelInject: "
+                 + std::to_string(received) + " packets from "
+                 + std::to_string(kThreads) + " concurrent threads");
+    return true;
+}
+
+// =============================================================================
+// Test 15: Concurrent bidirectional — inbound injection and outbound capture simultaneously
+//
+// Thread A injects kN packets inbound (Write → delivered to recv_sock).
+// Thread B sends kN packets outbound (send_sock → TUN fd readable).
+// Main thread drives the event loop and counts both directions.
+// Models the full VPN data path under concurrent load.
+// =============================================================================
+bool TunDeviceTest_Multithread_Bidirectional() {
+    if (!TunTest_IsPrivileged()) return false;
+    if (TunDevice::Exists(kTunIface)) { Logger::Error("TunDeviceTest_Multithread_Bidirectional: interface pre-exists"); return false; }
+
+    TunDevice dev;
+    if (!dev.Open(kTunIface))  { Logger::Error("TunDeviceTest_Multithread_Bidirectional: Open failed"); return false; }
+    if (!dev.SetNonBlocking()) { Logger::Error("TunDeviceTest_Multithread_Bidirectional: SetNonBlocking failed"); return false; }
+    if (!dev.BringUp(kTunIP))  { Logger::Error("TunDeviceTest_Multithread_Bidirectional: BringUp failed"); return false; }
+
+    { std::vector<uint8_t> drain(4096); while (dev.Read(drain) > 0) {} }
+
+    // recv_sock — receives inbound packets injected by Thread A
+    UDPSocket recv_sock;
+    if (!recv_sock.Open() || !recv_sock.Bind(kTunIP, 0) || !recv_sock.SetNonBlocking()) {
+        Logger::Error("TunDeviceTest_Multithread_Bidirectional: recv_sock setup failed");
+        return false;
+    }
+    const uint16_t recv_port = recv_sock.GetLocalEndpoint().value().port;
+
+    // send_sock — sends outbound packets that TUN fd captures
+    UDPSocket send_sock;
+    if (!send_sock.Open() || !send_sock.Bind(kTunIP, 0)) {
+        Logger::Error("TunDeviceTest_Multithread_Bidirectional: send_sock setup failed");
+        return false;
+    }
+
+    EventPoller poller;
+    if (!poller.Open()
+     || !poller.Add(recv_sock.GetHandle(), EventMask::Readable)
+     || !poller.Add(dev.GetHandle(),       EventMask::Readable)) {
+        Logger::Error("TunDeviceTest_Multithread_Bidirectional: poller setup failed");
+        return false;
+    }
+
+    static constexpr int kN = 50;
+
+    std::thread injector([&dev, recv_port]() {
+        for (int i = 0; i < kN; ++i) {
+            std::array<uint8_t, 1> payload{static_cast<uint8_t>(i)};
+            auto pkt = TunDevice::BuildUdpPacket(kTunDst, kTunIP, 9989, recv_port, payload);
+            dev.Write(pkt);
+        }
+    });
+
+    std::thread sender([&send_sock]() {
+        for (int i = 0; i < kN; ++i) {
+            std::array<uint8_t, 1> payload{static_cast<uint8_t>(i)};
+            send_sock.SendTo({kTunDst, 9988}, payload);
+        }
+    });
+
+    std::vector<uint8_t> buf(4096);
+    int inbound = 0, outbound = 0;
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+
+    while ((inbound < kN || outbound < kN) && std::chrono::steady_clock::now() < deadline) {
+        std::array<PollEvent, 4> ev{};
+        int n = poller.Poll(ev, 1000);
+        for (int i = 0; i < n; ++i) {
+            if (ev[static_cast<std::size_t>(i)].handle == recv_sock.GetHandle())
+                while (recv_sock.ReceiveFrom(buf)) ++inbound;
+            if (ev[static_cast<std::size_t>(i)].handle == dev.GetHandle())
+                while (dev.Read(buf) > 0) ++outbound;
+        }
+    }
+
+    injector.join();
+    sender.join();
+
+    if (inbound != kN || outbound != kN) {
+        Logger::Error("TunDeviceTest_Multithread_Bidirectional: inbound="
+                      + std::to_string(inbound) + " outbound="
+                      + std::to_string(outbound) + " expected=" + std::to_string(kN));
+        return false;
+    }
+
+    Logger::Info("TunDeviceTest_Multithread_Bidirectional: "
+                 + std::to_string(inbound) + " inbound + "
+                 + std::to_string(outbound) + " outbound");
+    return true;
+}
+
 #endif // _PQVPN_TESTS_TUN_DEVICE_TESTS_HPP_
