@@ -19,7 +19,7 @@ int InboundTraffic_Init(void* on_inbound_callback)
         return -1;
     }
 
-    return 0;
+    return ret;
 }
 
 int InboundTraffic_Poll()
