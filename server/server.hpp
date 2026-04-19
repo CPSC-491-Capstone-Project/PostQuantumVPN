@@ -1,19 +1,28 @@
 #ifndef _PQVPN_SERVER_SERVER_HPP_
 #define _PQVPN_SERVER_SERVER_HPP_
 
+#include "tun_device.hpp"
 #include "udp_socket.hpp"
 #include "event_poller.hpp"
 #include "ipv4.hpp"
+#include "handshake_processor.hpp"
 #include "handshake_constants.hpp"
+#include "peer.hpp"
+#include "index_table.hpp"
+#include "session_manager.hpp"
+#include "x25519.hpp"
 
 #include <atomic>
-#include <string>
-#include <thread>
 #include <array>
+#include <chrono>
 #include <cstdint>
+#include <string>
+#include <string_view>
+#include <thread>
 
 namespace server {
 
+    using core::network::TunDevice;
     using core::network::EventMask;
     using core::network::PollEvent;
     using core::network::Endpoint;
@@ -25,6 +34,9 @@ namespace server {
     using core::network::Port;
 
     using core::handshake::MessageType;
+    using core::handshake::Peer;
+    using core::handshake::IndexTable;
+    using core::session::SessionManager;
 
     class Server {
     public:
@@ -42,25 +54,20 @@ namespace server {
         Server& SetBindAddress(IPv4 ip);
         Server& SetPort(Port port);
         Server& SetPollTimeoutMs(int timeout_ms);
-        
+        Server& SetTunInterface(std::string_view ifname);
+
+        // Client's static X25519 public key — must be set before Init().
+        // ConsumeMessageInitiation verifies the decrypted initiator key
+        // against this value; no key means all handshakes are rejected.
+        Server& SetPeerStaticX25519(core::cryptography::x25519::PublicKey pub);
+
         // -----------------------------------------------------------------
         // Lifecycle
         // -----------------------------------------------------------------
- 
-        /// Opens socket, binds, sets non-blocking, creates poller, registers
-        /// the socket for readable events. Returns false on any failure and
-        /// cleans up anything already opened.
+
         bool Init();
- 
-        /// Starts the event loop on a background thread.
-        /// Returns false if Init() has not succeeded or if already running.
         bool Run();
- 
-        /// Signals the event loop to stop. Non-blocking - returns immediately.
         void Stop();
- 
-        /// Blocks until the background thread has joined, then closes the
-        /// poller and socket. Safe to call multiple times.
         void Shutdown();
 
         // -----------------------------------------------------------------
@@ -68,34 +75,49 @@ namespace server {
         // -----------------------------------------------------------------
         [[nodiscard]] bool IsRunning() const { return running_.load(std::memory_order_relaxed); }
         [[nodiscard]] bool IsInitialized() const { return initialized_; }
- 
-        [[nodiscard]] const UDPSocket& GetSocket() const { return socket_; }
+
+        [[nodiscard]] const UDPSocket&   GetSocket() const { return socket_; }
         [[nodiscard]] const EventPoller& GetPoller() const { return poller_; }
 
     private:
 
         // -----------------------------------------------------------------
-        // Configuration (set via builder methods before Init)
+        // Configuration
         // -----------------------------------------------------------------
-        IPv4 bind_ip_{};
-        Port port_{};
-        int poll_timeout_ms_{250};
- 
+        IPv4        bind_ip_{};
+        Port        port_{};
+        int         poll_timeout_ms_{250};
+        std::string tun_ifname_{};
+
         // -----------------------------------------------------------------
         // Runtime state
         // -----------------------------------------------------------------
-        UDPSocket socket_{};
+        UDPSocket   socket_{};
+        TunDevice   tun_{};
         EventPoller poller_{};
-        std::array<std::uint8_t, 1500> recv_buffer_{};
- 
+
+        // Buffers live here so the event loop doesn't allocate on every packet
+        std::array<std::uint8_t, 4096> recv_buf_{};
+        std::array<std::uint8_t, 4096> tun_buf_{};
+
         std::atomic<bool> running_{false};
         bool initialized_{false};
         bool stopped_{false};
         std::thread worker_thread_{};
 
+        // -----------------------------------------------------------------
+        // Handshake / session state
+        // -----------------------------------------------------------------
+        Peer            peer_{};
+        IndexTable      index_table_{};
+        SessionManager  session_manager_{};
+
+        // Set when a session becomes active (handshake complete).
+        Endpoint        peer_endpoint_{};
+        std::uint32_t   active_local_index_{0};
 
         // -----------------------------------------------------------------
-        // Event loop (runs on worker_thread_)
+        // Event loop
         // -----------------------------------------------------------------
         void EventLoop();
 
@@ -105,24 +127,22 @@ namespace server {
         void HandleInitiation(ConstData data, const Endpoint& sender);
         void HandleResponse(ConstData data, const Endpoint& sender);
         void HandleCookie(ConstData data, const Endpoint& sender);
-        void HandleTransport(ConstData data,const Endpoint& sender);
+        void HandleTransport(ConstData data, const Endpoint& sender);
+        void HandleTunReadable();
 
-        /// Called once per poll iteration for periodic housekeeping
+        // Called once per poll iteration for periodic housekeeping
         void TimerTick();
 
         // -----------------------------------------------------------------
         // Internal helpers
         // -----------------------------------------------------------------
- 
-        /// Formats an Endpoint as "ip:port" for log messages.
-        /// Keeps OS-specific formatting out of the server logic — delegates
-        /// to Endpoint's existing string fields.
+
+        // Generates server static keys, precomputes static-static DH,
+        // and logs the server's public keys so the client can be configured.
+        bool InitPeer();
+
         static std::string FormatEndpoint(const Endpoint& ep);
-
-        /// Closes whatever has been opened so far (poller, socket).
-        /// Used for partial-failure cleanup inside Init() and by Shutdown().
         void CleanupResources();
-
     };
 
 } // namespace server

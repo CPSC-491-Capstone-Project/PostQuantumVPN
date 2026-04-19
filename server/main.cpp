@@ -35,7 +35,8 @@ int main(int argc, char* argv[]) {
     Server server;
     server.SetBindAddress(IPv4::Any())
           .SetPort(51820)
-          .SetPollTimeoutMs(250);
+          .SetPollTimeoutMs(250)
+          .SetTunInterface("tun0");
 
     if (!server.Init()) {
         Logger::Error("main: Server initialization failed");
