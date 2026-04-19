@@ -34,6 +34,7 @@
 #include "session_manager_tests.hpp"
 #include "siphash_tests.hpp"
 #include "tai64n_tests.hpp"
+#include "tun_device_tests.hpp"
 #include "udp_socket_tests.hpp"
 #include "x25519_tests.hpp"
 #include "index_table_tests.hpp"
@@ -317,6 +318,26 @@ int main(int argc, char* argv[]) {
     Run(X25519Test_DeriveSharedSecret_DifferentPeerGivesDifferentSecret,"X25519: diff peer -> diff secret");
     Run(X25519Test_DeriveSharedSecret_WrongPrivateKey,                  "X25519: wrong priv -> diff secret");
     Run(X25519Test_DeriveSharedSecret_ThreePartyIndependent,            "X25519: 3-party independent");
+
+    // =============================================================================
+    // TunDevice Tests  (requires sudo — tests skip gracefully if not root)
+    // =============================================================================
+    std::cout << "\n";
+    Run(TunDeviceTest_OpenClose,              "TunDevice: open and close");
+    Run(TunDeviceTest_OpenAlreadyOpen,        "TunDevice: open already open");
+    Run(TunDeviceTest_DoubleClose,            "TunDevice: double close");
+    Run(TunDeviceTest_MoveConstruct,          "TunDevice: move construct");
+    Run(TunDeviceTest_MoveAssign,             "TunDevice: move assign");
+    Run(TunDeviceTest_SetNonBlocking,         "TunDevice: set non-blocking");
+    Run(TunDeviceTest_Write_InjectAndReceive, "TunDevice: write inject and receive");
+    Run(TunDeviceTest_Read_CaptureOutbound,   "TunDevice: read capture outbound");
+    Run(TunDeviceTest_Write_LargePacket,      "TunDevice: write 1400-byte packet");
+    Run(TunDeviceTest_EventPoller_Integration,"TunDevice: EventPoller integration");
+    Run(TunDeviceTest_OperationsOnClosed,          "TunDevice: ops on closed device");
+    Run(TunDeviceTest_BurstInbound,               "TunDevice: burst 100 inbound packets");
+    Run(TunDeviceTest_MultiDestinationPorts,      "TunDevice: multi-destination port routing");
+    Run(TunDeviceTest_Multithread_ParallelInject, "TunDevice: 4-thread parallel inject");
+    Run(TunDeviceTest_Multithread_Bidirectional,  "TunDevice: concurrent bidirectional");
 
     // =============================================================================
     // UDP Socket Tests
