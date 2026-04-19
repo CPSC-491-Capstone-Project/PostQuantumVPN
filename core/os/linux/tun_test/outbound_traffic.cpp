@@ -38,6 +38,12 @@ static int open_raw_socket() {
     return fd;
 }
 
+/**
+ * Inject outbound packet back into kernel.
+ * @param data Payload
+ * @param data_len payload length.
+ * @return number of bytes sent on success, otherwise -1 on fail.
+ */
 int OutboundTraffic_Inject(uint8_t* data, int data_len)
 {
     struct sockaddr_in dst{};
@@ -52,6 +58,12 @@ int OutboundTraffic_Inject(uint8_t* data, int data_len)
     return bytes_sent;
 }
 
+/**
+ * Read socket for intercepted outbound traffic.
+ * @param buf Data buffer.
+ * @param buf_len Data buffer length.
+ * @return -1 on read fail, otherwise len of data read to buffer.
+ */
 int OutboundTraffic_Read(uint8_t* buf, int buf_len)
 {
     int len = read(outbound_interception_fd, buf, buf_len);
@@ -63,6 +75,10 @@ int OutboundTraffic_Read(uint8_t* buf, int buf_len)
     return len;
 }
 
+/**
+ * Initialize outbound traffic interception subsystem.
+ * @return -1 on fail. Otherwise socket file descriptor for outbound traffic.
+ */
 int OutboundTraffic_Init()
 {
     int injection_fd = open_raw_socket();

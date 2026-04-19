@@ -2,6 +2,13 @@
 
 using core::utils::Logger;
 
+/**
+ * Runs as a callback when an inbound traffic is received via nfq_poll()
+ * @param qh Net Filter Queue, Queue Handle reference.
+ * @param nfa Object holding packet information and data payload.
+ * @param callback_data User data for callback, referencing a stateful object for nfq processing.
+ * @return -1 on fail, 0 on success.
+ */
 static int on_inbound(struct nfq_q_handle* qh, struct nfgenmsg*, struct nfq_data* nfa, void* callback_data)
 {
     struct nfq_state* nfq_state = (struct nfq_state*)callback_data;
@@ -10,6 +17,7 @@ static int on_inbound(struct nfq_q_handle* qh, struct nfgenmsg*, struct nfq_data
     int len = nfq_get_payload(nfa, &data);
     if (len < 0) {
         Logger::Error("NetFilterQueue: Unable to get payload from nfq_data.");
+        return -1;
     }
 
     uint32_t id = ntohl(nfq_get_msg_packet_hdr(nfa)->packet_id);
@@ -24,11 +32,23 @@ static int on_inbound(struct nfq_q_handle* qh, struct nfgenmsg*, struct nfq_data
     return 0;
 }
 
+/**
+ * Deliver packet to kernel network stack.
+ * @param packet Packet to deliver to kernel network stack.
+ * @return 0 on successful delivery, -1 on fail.
+ */
 int nfq_deliver(struct nfq_packet* packet) {
     // NF_ACCEPT delivers the packet to the local socket
     return nfq_set_verdict(packet->queue_handler, packet->packet_id, NF_ACCEPT, packet->data_len, packet->data);
 }
 
+/**
+ *
+ * @param nfq_state Custom stateful instance object for NFQ system
+ * @param queue_id ID of NFQ queue to reference.
+ * @param callback Callback to be called on inbound packet received (when poll is called).
+ * @return -1 on fail, otherwise nfq inbound traffic socket on success.
+ */
 int nfq_init(struct nfq_state* nfq_state, int queue_id, void* callback)
 {
     nfq_state->callback = (nfq_callback_t)callback;
@@ -64,6 +84,11 @@ int nfq_init(struct nfq_state* nfq_state, int queue_id, void* callback)
     return nfq_state->socket;
 }
 
+/**
+ * Poll for inbound network packets.
+ * @param nfq_state Stateful object for nfq system.
+ * @return -1 on recv failed. 0 on 0 len packet and successfully handled packet.
+ */
 int nfq_poll(struct nfq_state* nfq_state)
 {
     int len = recv(nfq_state->socket, nfq_state->buf, sizeof(nfq_state->buf), 0);

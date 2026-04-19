@@ -6,7 +6,12 @@
 #include <sys/ioctl.h>
 #include <linux/if_tun.h>
 
-int open_tun(const char* ifname) 
+/**
+ * Open tunnel device file descriptor.
+ * @param ifname Tunnel interface name
+ * @return -1 on fail. File descriptor on success.
+ */
+int open_tun(const char* ifname)
 {
     int fd = open("/dev/net/tun", O_RDWR);
     if (fd < 0) {
