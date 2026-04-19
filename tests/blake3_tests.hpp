@@ -1,4 +1,7 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_BLAKE3_TESTS_HPP_
+#define _PQVPN_TESTS_BLAKE3_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "blake3.hpp"
 
 #include <string>
@@ -177,3 +180,4 @@ bool Blake3Test_HashXof_PrefixConsistency() {
     bool prefix_matches = std::equal(short_out->begin(), short_out->end(), long_out->begin());
     return test_helper("1", std::to_string(prefix_matches));
 }
+#endif // _PQVPN_TESTS_BLAKE3_TESTS_HPP_

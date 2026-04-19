@@ -1,6 +1,7 @@
 #include "handshake_helpers.hpp"
 #include "logger.hpp"
 #include "chacha20_poly1305.hpp"
+#include "secure_memory.hpp"
 #include "udp_socket.hpp"
 #include "random.hpp"
 
@@ -15,6 +16,8 @@
 #endif
 
 using core::utils::Logger;
+using core::utils::ct_memcmp;
+using core::utils::secure_zero;
 using core::cryptography::blake3::Hash256;
 using core::cryptography::blake3::KeyedHash256;
 
@@ -46,24 +49,27 @@ auto KDF1(const Blake3Hash& chaining_key, ConstByteSpan input) -> std::optional<
         std::span<const std::uint8_t, 32>{chaining_key},
         input
     );
- 
+
     if (!prk) {
         Logger::Error("KDF1: KeyedHash256 failed computing PRK");
         return std::nullopt;
     }
- 
+
     // T0 = BLAKE3_keyed(key=PRK, data=0x01)
     const std::array<std::uint8_t, 1> counter = {0x01};
     auto t0 = KeyedHash256(
         std::span<const std::uint8_t, 32>{*prk},
         ConstByteSpan{counter}
     );
- 
+
+    // PRK is consumed — zero it before any return path.
+    secure_zero(*prk);
+
     if (!t0) {
         Logger::Error("KDF1: KeyedHash256 failed computing T0");
         return std::nullopt;
     }
- 
+
     return *t0;
 }
 
@@ -73,96 +79,109 @@ auto KDF2(const Blake3Hash& chaining_key, ConstByteSpan input) -> std::optional<
         std::span<const std::uint8_t, 32>{chaining_key},
         input
     );
- 
+
     if (!prk) {
         Logger::Error("KDF2: KeyedHash256 failed computing PRK");
         return std::nullopt;
     }
- 
+
     // T0 = BLAKE3_keyed(key=PRK, data=0x01)
     const std::array<std::uint8_t, 1> counter1 = {0x01};
     auto t0 = KeyedHash256(
         std::span<const std::uint8_t, 32>{*prk},
         ConstByteSpan{counter1}
     );
- 
+
     if (!t0) {
         Logger::Error("KDF2: KeyedHash256 failed computing T0");
+        secure_zero(*prk);
         return std::nullopt;
     }
- 
+
     // T1 = BLAKE3_keyed(key=PRK, data=T0 || 0x02)
     std::array<std::uint8_t, 33> t0_counter2{};
     std::copy(t0->begin(), t0->end(), t0_counter2.begin());
     t0_counter2[32] = 0x02;
- 
+
     auto t1 = KeyedHash256(
         std::span<const std::uint8_t, 32>{*prk},
         ConstByteSpan{t0_counter2}
     );
- 
+
+    // PRK and the T0||counter buffer are consumed — zero them before any return path.
+    secure_zero(*prk);
+    secure_zero(t0_counter2);
+
     if (!t1) {
         Logger::Error("KDF2: KeyedHash256 failed computing T1");
         return std::nullopt;
     }
- 
+
     return std::make_tuple(*t0, *t1);
 }
 
-auto KDF3(const Blake3Hash& chaining_key,ConstByteSpan input) -> std::optional<std::tuple<Blake3Hash, Blake3Hash, Blake3Hash>>{
+auto KDF3(const Blake3Hash& chaining_key, ConstByteSpan input) -> std::optional<std::tuple<Blake3Hash, Blake3Hash, Blake3Hash>> {
     // PRK = BLAKE3_keyed(key=C, data=input)
     auto prk = KeyedHash256(
         std::span<const std::uint8_t, 32>{chaining_key},
         input
     );
- 
+
     if (!prk) {
         Logger::Error("KDF3: KeyedHash256 failed computing PRK");
         return std::nullopt;
     }
- 
+
     // T0 = BLAKE3_keyed(key=PRK, data=0x01)
     const std::array<std::uint8_t, 1> counter1 = {0x01};
     auto t0 = KeyedHash256(
         std::span<const std::uint8_t, 32>{*prk},
         ConstByteSpan{counter1}
     );
- 
+
     if (!t0) {
         Logger::Error("KDF3: KeyedHash256 failed computing T0");
+        secure_zero(*prk);
         return std::nullopt;
     }
- 
+
     // T1 = BLAKE3_keyed(key=PRK, data=T0 || 0x02)
     std::array<std::uint8_t, 33> t0_counter2{};
     std::copy(t0->begin(), t0->end(), t0_counter2.begin());
     t0_counter2[32] = 0x02;
- 
+
     auto t1 = KeyedHash256(
         std::span<const std::uint8_t, 32>{*prk},
         ConstByteSpan{t0_counter2}
     );
- 
+
     if (!t1) {
         Logger::Error("KDF3: KeyedHash256 failed computing T1");
+        secure_zero(*prk);
+        secure_zero(t0_counter2);
         return std::nullopt;
     }
- 
+
     // T2 = BLAKE3_keyed(key=PRK, data=T1 || 0x03)
     std::array<std::uint8_t, 33> t1_counter3{};
     std::copy(t1->begin(), t1->end(), t1_counter3.begin());
     t1_counter3[32] = 0x03;
- 
+
     auto t2 = KeyedHash256(
         std::span<const std::uint8_t, 32>{*prk},
         ConstByteSpan{t1_counter3}
     );
- 
+
+    // All intermediates consumed — zero them before any return path.
+    secure_zero(*prk);
+    secure_zero(t0_counter2);
+    secure_zero(t1_counter3);
+
     if (!t2) {
         Logger::Error("KDF3: KeyedHash256 failed computing T2");
         return std::nullopt;
     }
- 
+
     return std::make_tuple(*t0, *t1, *t2);
 }
 
@@ -189,6 +208,10 @@ auto EncryptAndHash(Blake3Hash& hash, const Blake3Hash& key, ConstByteSpan plain
     std::copy(key.begin(), key.end(), aead_key.begin());
 
     auto result = aead::Encrypt(plaintext, aead_key, kZeroNonce, ConstByteSpan{hash});
+
+    // Zero the local key copy — it is no longer needed.
+    secure_zero(aead_key);
+
     if (!result) {
         Logger::Error("EncryptAndHash: AEAD encryption failed");
         return std::nullopt;
@@ -228,9 +251,13 @@ auto DecryptAndHash(Blake3Hash& hash, const Blake3Hash& key, ConstByteSpan ciphe
 
     // Decrypt - AAD is the CURRENT hash (before MixHash).
     auto plaintext = aead::Decrypt(ct_span, tag, aead_key, kZeroNonce, ConstByteSpan{hash});
+
+    // Zero local key and tag copies — they are no longer needed.
+    secure_zero(aead_key);
+    secure_zero(tag);
+
     if (!plaintext) {
         // Authentication failed - do NOT modify hash. Abort.
-        
         return std::nullopt;
     }
 
@@ -292,13 +319,9 @@ auto VerifyMac1(
         return false;
     }
 
-    // Constant time comparison to prevent timing attacks
-    int diff = 0;
-    for (std::size_t i = 0; i < 16; i++) {
-        diff |= expected->at(i) ^ received_mac1[i];
-    }
-
-    return diff == 0;
+    bool equal = ct_memcmp(expected->data(), received_mac1.data(), 16);
+    secure_zero(*expected);
+    return equal;
 }
 
 auto DeriveCookieKey(ConstByteSpan static_x25519_pub) -> std::optional<Blake3Hash> {
@@ -484,13 +507,9 @@ auto VerifyMac2(
         return false;
     }
 
-    // Constant time comparison
-    int diff = 0;
-    for (std::size_t i = 0; i < 16; i++) {
-        diff |= expected->at(i) ^ received_mac2[i];
-    }
-
-    return diff == 0;
+    bool equal = ct_memcmp(expected->data(), received_mac2.data(), 16);
+    secure_zero(*expected);
+    return equal;
 }
 
 } // namespace core::handshake

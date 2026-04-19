@@ -1,4 +1,7 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_HANDSHAKE_HELPER_TESTS_HPP_
+#define _PQVPN_TESTS_HANDSHAKE_HELPER_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "handshake_helpers.hpp"
 #include "handshake_constants.hpp"
 
@@ -730,3 +733,5 @@ bool EncryptAndHashTest_Deterministic() {
 
     return test_helper("1", std::to_string(*ct1 == *ct2));
 }
+
+#endif // _PQVPN_TESTS_HANDSHAKE_HELPER_TESTS_HPP_

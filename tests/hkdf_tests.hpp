@@ -1,4 +1,7 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_HKDF_TESTS_HPP_
+#define _PQVPN_TESTS_HKDF_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "hkdf.hpp"
 
 // Tests for the HKDF wrapper covering extract output size, expand output size,
@@ -6,7 +9,7 @@
 
 using namespace core::cryptography::hkdf;
 
-static std::string BytesMatch(const std::vector<std::uint8_t>& a, const std::vector<std::uint8_t>& b) {
+static std::string HkdfBytesMatch(const std::vector<std::uint8_t>& a, const std::vector<std::uint8_t>& b) {
     if (a.size() != b.size()) return "size_mismatch";
     for (std::size_t i = 0; i < a.size(); ++i) {
         if (a[i] != b[i]) return "mismatch";
@@ -75,7 +78,7 @@ bool HkdfTest_DeriveKey_Deterministic() {
 
     if (!result1 || !result2) return test_helper("derivekey", "nullopt");
 
-    return test_helper("match", BytesMatch(*result1, *result2));
+    return test_helper("match", HkdfBytesMatch(*result1, *result2));
 }
 
 // Different salt should produce different output
@@ -90,7 +93,7 @@ bool HkdfTest_DeriveKey_DifferentSalt() {
 
     if (!result1 || !result2) return test_helper("derivekey", "nullopt");
 
-    return test_helper("mismatch", BytesMatch(*result1, *result2));
+    return test_helper("mismatch", HkdfBytesMatch(*result1, *result2));
 }
 
 // Different key material should produce different output
@@ -105,7 +108,7 @@ bool HkdfTest_DeriveKey_DifferentIKM() {
 
     if (!result1 || !result2) return test_helper("derivekey", "nullopt");
 
-    return test_helper("mismatch", BytesMatch(*result1, *result2));
+    return test_helper("mismatch", HkdfBytesMatch(*result1, *result2));
 }
 
 // Extract then expand should match DeriveKey
@@ -123,5 +126,6 @@ bool HkdfTest_Roundtrip_ExtractExpand_MatchesDeriveKey() {
     auto derived = DeriveKey(salt, ikm, info, 32);
     if (!derived) return test_helper("derivekey", "nullopt");
 
-    return test_helper("match", BytesMatch(*expanded, *derived));
+    return test_helper("match", HkdfBytesMatch(*expanded, *derived));
 }
+#endif // _PQVPN_TESTS_HKDF_TESTS_HPP_

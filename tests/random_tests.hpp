@@ -1,4 +1,7 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_RANDOM_TESTS_HPP_
+#define _PQVPN_TESTS_RANDOM_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "random.hpp"
 #include <iostream>
 
@@ -36,3 +39,4 @@ bool RandomTest_3319Bytes() {
     auto bytes = Random::GenerateNRandomBytes(3319);
     return test_helper("3319", std::to_string(bytes.size()));
 }
+#endif // _PQVPN_TESTS_RANDOM_TESTS_HPP_

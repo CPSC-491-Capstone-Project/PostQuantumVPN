@@ -1,4 +1,7 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_CHACHA20_POLY1305_TESTS_HPP_
+#define _PQVPN_TESTS_CHACHA20_POLY1305_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "chacha20_poly1305.hpp"
 
 #include <algorithm>
@@ -401,3 +404,4 @@ bool ChaCha20Test_Auth_SpuriousAAD() {
     auto dec = Decrypt(enc->ciphertext, enc->tag, *key, *nonce, aad);
     return test_helper("0", std::to_string(dec.has_value()));
 }
+#endif // _PQVPN_TESTS_CHACHA20_POLY1305_TESTS_HPP_

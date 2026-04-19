@@ -1,4 +1,7 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_BIT_UTILS_TESTS_HPP_
+#define _PQVPN_TESTS_BIT_UTILS_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "bit_utils.hpp"
 
 #include <array>
@@ -93,3 +96,4 @@ bool BitUtilsTest_Roundtrip_BitsToBytes_To_BytesToBits() {
     BytesToBits(bytes, result);
     return test_helper(SpanToStr(original), SpanToStr(result));
 }
+#endif // _PQVPN_TESTS_BIT_UTILS_TESTS_HPP_

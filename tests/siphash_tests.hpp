@@ -1,4 +1,7 @@
-#include "tests.h"
+#ifndef _PQVPN_TESTS_SIPHASH_TESTS_HPP_
+#define _PQVPN_TESTS_SIPHASH_TESTS_HPP_
+
+#include "test_utils.hpp"
 #include "siphash.hpp"
 #include "hex_helpers.tpp"
 
@@ -73,3 +76,4 @@ bool SipHashTest_NormalKey_LargeInput() {
     std::string expected = "0xCBB9639F0B5F4F88";
     return test_helper(expected, ToHexString(hash));
 }
+#endif // _PQVPN_TESTS_SIPHASH_TESTS_HPP_

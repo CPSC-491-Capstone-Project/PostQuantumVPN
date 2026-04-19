@@ -56,19 +56,67 @@ make help         # Outputs all available make commands
 
 ## Tests
 
-### Writing Tests
-1. Create a `.cpp` file for the module you want to test in `tests/`
-2. Add your test code to the newly created file
-3. Declare the function in `tests/tests.h`
-4. Add `Run(TestFunction);` in `tests/test_runner.cpp`
+The test suite uses a **unity build** — all test logic lives in `.hpp` header files and is compiled into a single translation unit (`tests/test_runner.cpp`). Changing one `.hpp` only triggers one recompile instead of rebuilding every test file.
 
-See the sample tests included for reference.
+### Writing Tests
+
+1. Create `tests/<module>_tests.hpp` with an `#ifndef`/`#define`/`#endif` header guard:
+   ```cpp
+   #ifndef _PQVPN_TESTS_<MODULE>_TESTS_HPP_
+   #define _PQVPN_TESTS_<MODULE>_TESTS_HPP_
+
+   #include "test_utils.hpp"
+   #include "<module>.hpp"
+
+   bool MyTest_SomeCase() {
+       // ...
+       return test_helper("expected", actual);
+   }
+
+   #endif // _PQVPN_TESTS_<MODULE>_TESTS_HPP_
+   ```
+2. `#include` the new header in `tests/test_runner.cpp` (keep the list alphabetical).
+3. Add `Run(MyTest_SomeCase, "My module: some case");` inside `main()` in `tests/test_runner.cpp`.
+
+> **Note:** avoid `using namespace` at file scope in test headers — all headers share one translation unit, so namespace pollution bleeds across every included header. Use namespace aliases (`namespace ns = some::long::ns;`) or fully-qualified names instead.
 
 ### Running Tests
 ```bash
-make test       # Builds all tests
-make run-test   # Builds and runs all tests
+make test                     # Build the test binary
+make run-test                 # Build and run all tests
+make run-test FILTER="X25519" # Build and run only tests whose name contains "X25519"
+make run-test FILTER="BLAKE3" # Build and run only BLAKE3 tests
 ```
+
+The `FILTER` value is a substring match against the test name. Available filters:
+
+| `FILTER=` value | What it runs |
+|---|---|
+| `Logger` | Logger + LogEvent tests |
+| `Random` | Random byte generation tests |
+| `BitsToBytes` | Bit utils (BitsToBytes direction) |
+| `BytesToBits` | Bit utils (BytesToBits direction) |
+| `Hex` | Hex helper tests |
+| `ML-KEM` | ML-KEM / Kyber tests |
+| `ChaCha20` | ChaCha20-Poly1305 tests |
+| `SipHash` | SipHash tests |
+| `HKDF` | HKDF tests |
+| `X25519` | X25519 ECDH tests |
+| `UDPSocket` | UDP socket tests |
+| `IPv4` | IPv4 address class tests |
+| `BLAKE3` | BLAKE3 hash + XOF tests |
+| `BLAKE3 XOF` | BLAKE3 XOF-only tests |
+| `EventPoller` | Event poller tests |
+| `TAI64N` | TAI64N timestamp tests |
+| `MixHash` | MixHash tests |
+| `KDF1` | KDF1 tests |
+| `KDF2` | KDF2 tests |
+| `KDF3` | KDF3 tests |
+| `KDF` | KDF1 + KDF2 + KDF3 + HKDF (all key derivation) |
+| `EaH` | EncryptAndHash tests |
+| `DaH` | DecryptAndHash tests |
+| `Session` | Sessions tests |
+
 
 ## Project Links
 
