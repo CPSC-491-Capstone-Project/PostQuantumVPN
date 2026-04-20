@@ -38,6 +38,8 @@
 #include "udp_socket_tests.hpp"
 #include "x25519_tests.hpp"
 #include "index_table_tests.hpp"
+#include "replay_window_tests.hpp"
+#include "session_encrypt_tests.hpp"
 
 // --- Standard headers used by the runner itself ---
 #include "handshake_constants.hpp"
@@ -471,6 +473,51 @@ int main(int argc, char* argv[]) {
     Run(SessionManagerTest_ActivateSession_ZeroKeyRejected,    "SessionManager: zero key rejected");
     Run(SessionManagerTest_TransitionSession_OldRemovedNewActive, "SessionManager: transition removes old");
     Run(SessionManagerTest_TransitionSession_FailureKeepsOldSession, "SessionManager: transition fail keeps old");
+
+    // =============================================================================
+    // Replay Window Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(ReplayWindowTest_Sequential_AllAccepted,            "ReplayWindow: sequential all accepted");
+    Run(ReplayWindowTest_Zero_AcceptedThenRejected,         "ReplayWindow: zero accepted then rejected");
+    Run(ReplayWindowTest_Duplicate_Rejected,                "ReplayWindow: duplicate rejected");
+    Run(ReplayWindowTest_OutOfOrder_Accepted,               "ReplayWindow: out-of-order within window");
+    Run(ReplayWindowTest_TooOld_Rejected,                   "ReplayWindow: too old rejected");
+    Run(ReplayWindowTest_LargeJump_ThenOldInWindow,         "ReplayWindow: large jump then old in window");
+    Run(ReplayWindowTest_BoundaryEdge,                      "ReplayWindow: boundary edge cases");
+    Run(ReplayWindowTest_ExactLastCounter_RejectedAfterAccept, "ReplayWindow: exact last counter rejected");
+    Run(ReplayWindowTest_MultipleJumps_Consistent,          "ReplayWindow: multiple jumps consistent");
+
+    // =============================================================================
+    // Session Seal / Open Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(SessionSealTest_ProducesValue,                      "Session: Seal produces value");
+    Run(SessionSealTest_OutputLength,                       "Session: Seal output = pt + 16");
+    Run(SessionSealTest_CiphertextDiffersFromPlaintext,     "Session: Seal ct != pt");
+    Run(SessionSealTest_EmptyPlaintext,                     "Session: Seal empty pt = 16 bytes");
+    Run(SessionSealTest_CounterIncrementsPerCall,           "Session: Seal counter increments");
+
+    std::cout << "\n";
+    Run(SessionRoundtrip_Basic,                             "Session: roundtrip basic");
+    Run(SessionRoundtrip_EmptyPlaintext,                    "Session: roundtrip empty pt");
+    Run(SessionRoundtrip_LargePacket,                       "Session: roundtrip 1400-byte packet");
+    Run(SessionRoundtrip_MultipleMessages,                  "Session: roundtrip 50 sequential messages");
+    Run(SessionRoundtrip_OutOfOrderWithinWindow,            "Session: roundtrip out-of-order");
+
+    std::cout << "\n";
+    Run(SessionOpen_RejectsReplay,                          "Session: Open rejects replay");
+    Run(SessionOpen_RejectsTamperedCiphertext,              "Session: Open rejects tampered ct");
+    Run(SessionOpen_RejectsTamperedTag,                     "Session: Open rejects tampered tag");
+    Run(SessionOpen_RejectsTooShort,                        "Session: Open rejects too-short payload");
+    Run(SessionOpen_RejectsCounterAtLimit,                  "Session: Open rejects counter at limit");
+    Run(SessionOpen_RejectsCounterTooOld,                   "Session: Open rejects counter too old");
+    Run(SessionSeal_RejectsExhaustedCounter,                "Session: Seal rejects exhausted counter");
+
+    std::cout << "\n";
+    Run(SessionMultiClient_Independent,                     "Session: 8 clients independent (single-threaded)");
+    Run(SessionMultiClient_SessionManagerLookup,            "Session: 6 clients via SessionManager lookup");
+    Run(SessionMultiClient_MultiThread_FullRoundTrip,       "Session: 5 clients MT full round trip");
 
     // =============================================================================
     // Index Table Tests
