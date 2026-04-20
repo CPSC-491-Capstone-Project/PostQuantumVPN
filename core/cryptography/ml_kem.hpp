@@ -1,6 +1,8 @@
 #ifndef _PQVPN_CORE_CRYPTOGRAPHY_ML_KEM_HPP_
 #define _PQVPN_CORE_CRYPTOGRAPHY_ML_KEM_HPP_
 
+#include "evp_utils.hpp"
+
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -31,17 +33,10 @@ namespace core::cryptography::ml_kem {
 
     inline constexpr std::size_t kSharedSecretBytes = 32;
 
-    // RAII deleters for OpenSSL handles
-    struct EvpPkeyDeleter {
-        void operator()(EVP_PKEY* p) const noexcept { EVP_PKEY_free(p); }
-    };
-
-    struct EvpPkeyCtxDeleter {
-        void operator()(EVP_PKEY_CTX* p) const noexcept { EVP_PKEY_CTX_free(p); }
-    };
-
-    using EvpPkeyPtr = std::unique_ptr<EVP_PKEY, EvpPkeyDeleter>;
-    using EvpPkeyCtxPtr = std::unique_ptr<EVP_PKEY_CTX, EvpPkeyCtxDeleter>;
+    using core::cryptography::EvpPkeyDeleter;
+    using core::cryptography::EvpPkeyCtxDeleter;
+    using core::cryptography::EvpPkeyPtr;
+    using core::cryptography::EvpPkeyCtxPtr;
 
     // Key pair
     struct KeyPair {

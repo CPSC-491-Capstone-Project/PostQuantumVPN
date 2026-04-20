@@ -1,5 +1,6 @@
 #include "session.hpp"
 #include "bit_utils.hpp"
+#include "handshake_constants.hpp"
 #include "logger.hpp"
 
 #include <cstring>
@@ -23,7 +24,7 @@ auto Session::Seal(ConstByteSpan plaintext)
 
     const std::uint64_t counter = send_nonce.fetch_add(1, std::memory_order_relaxed);
 
-    if (counter >= kRejectAfterMessages) {
+    if (counter >= core::handshake::kRejectAfterMessages) {
         Logger::Error("Session::Seal: counter exhausted sender_index=" +
                       std::to_string(sender_index));
         return std::nullopt;
@@ -48,7 +49,7 @@ auto Session::Open(std::uint64_t counter, ConstByteSpan ciphertext_with_tag)
     -> std::optional<std::vector<std::uint8_t>> {
     namespace cc = core::cryptography::chacha20_poly1305;
 
-    if (counter >= kRejectAfterMessages) {
+    if (counter >= core::handshake::kRejectAfterMessages) {
         Logger::Warning("Session::Open: counter exceeds limit sender_index=" +
                         std::to_string(sender_index));
         return std::nullopt;

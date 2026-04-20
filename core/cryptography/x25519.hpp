@@ -1,6 +1,8 @@
 #ifndef _PQVPN_CORE_CRYPTOGRAPHY_X25519_HPP_
 #define _PQVPN_CORE_CRYPTOGRAPHY_X25519_HPP_
 
+#include "evp_utils.hpp"
+
 #include <cstdint>
 #include <array>
 #include <vector>
@@ -12,27 +14,18 @@
 
 namespace core::cryptography::x25519 {
 
-    inline constexpr std::size_t kPrivateKeyBytes = 32; // 256-bit private key
-    inline constexpr std::size_t kPublicKeyBytes  = 32; // 256-bit public key
+    inline constexpr std::size_t kPrivateKeyBytes   = 32; // 256-bit private key
+    inline constexpr std::size_t kPublicKeyBytes    = 32; // 256-bit public key
     inline constexpr std::size_t kSharedSecretBytes = 32; // 256-bit shared secret
 
     using PrivateKey   = std::array<std::uint8_t, kPrivateKeyBytes>;
     using PublicKey    = std::array<std::uint8_t, kPublicKeyBytes>;
     using SharedSecret = std::array<std::uint8_t, kSharedSecretBytes>;
 
-    // RAII deleter for EVP_PKEY
-    struct EvpPkeyDeleter {
-        void operator()(EVP_PKEY* p) const noexcept { EVP_PKEY_free(p); }
-    };
-
-    using EvpPkeyPtr = std::unique_ptr<EVP_PKEY, EvpPkeyDeleter>;
-
-    // RAII deleter for EVP_PKEY_CTX
-    struct EvpPkeyCtxDeleter {
-        void operator()(EVP_PKEY_CTX* p) const noexcept { EVP_PKEY_CTX_free(p); }
-    };
-
-    using EvpPkeyCtxPtr = std::unique_ptr<EVP_PKEY_CTX, EvpPkeyCtxDeleter>;
+    using core::cryptography::EvpPkeyDeleter;
+    using core::cryptography::EvpPkeyPtr;
+    using core::cryptography::EvpPkeyCtxDeleter;
+    using core::cryptography::EvpPkeyCtxPtr;
 
     struct KeyPair {
         PrivateKey private_key;

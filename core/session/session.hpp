@@ -1,6 +1,7 @@
 #ifndef _PQVPN_CORE_SESSION_SESSION_HPP_
 #define _PQVPN_CORE_SESSION_SESSION_HPP_
 
+#include "bit_utils.hpp"
 #include "chacha20_poly1305.hpp"
 #include "replay_window.hpp"
 #include "udp_socket.hpp"
@@ -14,10 +15,7 @@
 
 namespace core::session {
 
-using ConstByteSpan = std::span<const std::uint8_t>;
-
-// Absolute maximum messages per session key (2^64 - 2^13 - 1, matching WireGuard).
-inline constexpr std::uint64_t kRejectAfterMessages = UINT64_MAX - (std::uint64_t{1} << 13);
+using ConstByteSpan = core::utils::ConstByteSpan;
 
 // Output of the handshake KDF2(C, empty). The handshake module is responsible
 // for placing the correct keys in the correct fields before calling

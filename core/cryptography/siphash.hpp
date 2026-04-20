@@ -1,6 +1,8 @@
 #ifndef _PQVPN_CORE_CRYPTOGRAPHY_SIPHASH_HPP_
 #define _PQVPN_CORE_CRYPTOGRAPHY_SIPHASH_HPP_
 
+#include "bit_utils.hpp"
+
 #include <cstdint>
 #include <array>
 #include <span>
@@ -17,9 +19,10 @@ namespace core::cryptography::siphash {
     inline constexpr std::size_t kKeyBytes = 16;
     inline constexpr std::size_t kHashBytes = 8;
 
-    using Key = std::array<std::uint8_t, kKeyBytes>;
-    using Data = std::span<const std::uint8_t>;
-    using Result = uint64_t;
+    using Key       = std::array<std::uint8_t, kKeyBytes>;
+    using Data      = core::utils::ByteSpan;
+    using ConstData = core::utils::ConstByteSpan;
+    using Result    = std::uint64_t;
 
 
     // C - Compression Rounds
@@ -31,7 +34,7 @@ namespace core::cryptography::siphash {
 
     public:
     
-        [[nodiscard]] Result operator()(const Key& key, Data data) const noexcept;
+        [[nodiscard]] Result operator()(const Key& key, ConstData data) const noexcept;
 
     private:
         struct State {
@@ -50,7 +53,7 @@ namespace core::cryptography::siphash {
     // Normalization functions to handle strings 
     // and other byte containers
 
-    [[nodiscard]] inline Key NormalizeKey(Data input) noexcept {
+    [[nodiscard]] inline Key NormalizeKey(ConstData input) noexcept {
         Key key{};
         const auto len = std::min(input.size(), kKeyBytes);
         std::memcpy(key.data(), input.data(), len);
@@ -58,19 +61,19 @@ namespace core::cryptography::siphash {
     }
 
     [[nodiscard]] inline Key NormalizeKey(std::string_view input) noexcept {
-        return NormalizeKey(Data{
-            reinterpret_cast<const uint8_t*>(input.data()),
+        return NormalizeKey(ConstData{
+            reinterpret_cast<const std::uint8_t*>(input.data()),
             input.size()
         });
     }
 
-    [[nodiscard]] inline Data NormalizeData(Data input) noexcept {
+    [[nodiscard]] inline ConstData NormalizeData(ConstData input) noexcept {
         return input;
     }
 
-    [[nodiscard]] inline Data NormalizeData(std::string_view input) noexcept {
+    [[nodiscard]] inline ConstData NormalizeData(std::string_view input) noexcept {
         return {
-            reinterpret_cast<const uint8_t*>(input.data()),
+            reinterpret_cast<const std::uint8_t*>(input.data()),
             input.size()
         };
     }

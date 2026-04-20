@@ -17,9 +17,6 @@
 #include <vector>
 
 namespace core::network {
-    using ConstData = std::span<const std::uint8_t>;
-    using Data = std::span<std::uint8_t>;
-    using BytesTransferred = std::ptrdiff_t;
 
     class TunDevice {
     public:

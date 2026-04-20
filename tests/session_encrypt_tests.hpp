@@ -2,6 +2,7 @@
 #define _PQVPN_TESTS_SESSION_ENCRYPT_TESTS_HPP_
 
 #include "test_utils.hpp"
+#include "handshake_constants.hpp"
 #include "session.hpp"
 #include "session_manager.hpp"
 #include "ipv4.hpp"
@@ -243,7 +244,7 @@ bool SessionOpen_RejectsTooShort() {
 bool SessionOpen_RejectsCounterAtLimit() {
     auto p = SeTest_MakePair();
     std::vector<std::uint8_t> fake(48, 0x00);
-    auto result = p.server->Open(core::session::kRejectAfterMessages, ConstByteSpan{fake});
+    auto result = p.server->Open(core::handshake::kRejectAfterMessages, ConstByteSpan{fake});
     return test_helper("1", std::to_string(!result.has_value()));
 }
 
@@ -259,7 +260,7 @@ bool SessionOpen_RejectsCounterTooOld() {
 
 bool SessionSeal_RejectsExhaustedCounter() {
     auto p = SeTest_MakePair();
-    p.client->send_nonce.store(core::session::kRejectAfterMessages, std::memory_order_relaxed);
+    p.client->send_nonce.store(core::handshake::kRejectAfterMessages, std::memory_order_relaxed);
     std::vector<std::uint8_t> pt(32, 0xAA);
     auto result = p.client->Seal(ConstByteSpan{pt});
     return test_helper("1", std::to_string(!result.has_value()));
