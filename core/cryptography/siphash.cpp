@@ -28,7 +28,7 @@ namespace core::cryptography::siphash {
     }
 
     template <int CRounds, int DRounds>
-    Result SipHash<CRounds, DRounds>::operator()(const Key& key, Data data) const noexcept {
+    Result SipHash<CRounds, DRounds>::operator()(const Key& key, ConstData data) const noexcept {
 
         const uint64_t k0 = load64_le(key.data());
         const uint64_t k1 = load64_le(key.data() + 8);

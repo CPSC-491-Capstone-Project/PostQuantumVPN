@@ -1,6 +1,7 @@
 #ifndef _PQVPN_CORE_HANDSHAKE_CONSTANTS_HPP_
 #define _PQVPN_CORE_HANDSHAKE_CONSTANTS_HPP_
 
+#include "bit_utils.hpp"
 #include "blake3.hpp"
 
 #include <string_view>
@@ -8,9 +9,9 @@
 
 namespace core::handshake {
 
-using ByteSpan = std::span<std::uint8_t>;
-using ConstByteSpan = std::span<const std::uint8_t>;
-using Blake3Hash = std::array<std::uint8_t, BLAKE3_OUT_LEN>;
+using ByteSpan      = core::utils::ByteSpan;
+using ConstByteSpan = core::utils::ConstByteSpan;
+using Blake3Hash    = std::array<std::uint8_t, BLAKE3_OUT_LEN>;
 
 // ---------------------------------------------------------------------------
 // Protocol construction & identifier strings

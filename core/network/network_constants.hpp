@@ -3,11 +3,16 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 namespace core::network {
 
-    using Handle = std::int32_t;
-    using Port = std::uint16_t;
+    using Handle           = std::int32_t;
+    using Port             = std::uint16_t;
+    using Data             = std::span<std::uint8_t>;
+    using ConstData        = std::span<const std::uint8_t>;
+    using BytesTransferred = std::ptrdiff_t;
+
     inline constexpr Handle kInvalidHandle = -1;
 
     // KB
