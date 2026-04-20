@@ -2,13 +2,22 @@
 #define _PQVPN_CORE_SESSION_SESSION_HPP_
 
 #include "chacha20_poly1305.hpp"
+#include "replay_window.hpp"
 #include "udp_socket.hpp"
 
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <optional>
+#include <span>
+#include <vector>
 
 namespace core::session {
+
+using ConstByteSpan = std::span<const std::uint8_t>;
+
+// Absolute maximum messages per session key (2^64 - 2^13 - 1, matching WireGuard).
+inline constexpr std::uint64_t kRejectAfterMessages = UINT64_MAX - (std::uint64_t{1} << 13);
 
 // Output of the handshake KDF2(C, empty). The handshake module is responsible
 // for placing the correct keys in the correct fields before calling
@@ -38,6 +47,12 @@ struct Session {
 
     core::network::Endpoint peer{};
 
+    // Timestamp of last successfully decrypted inbound packet
+    std::chrono::steady_clock::time_point last_received_time{};
+
+    // Inbound replay filter — single receive-loop access assumed
+    ReplayWindow replay_window{};
+
     // Zeros send and receive keys before destruction
     void Clear() {
         volatile std::uint8_t* p;
@@ -56,6 +71,25 @@ struct Session {
     Session& operator=(const Session&) = delete;
     Session(Session&&)                 = delete;
     Session& operator=(Session&&)      = delete;
+
+    // Encrypts plaintext and atomically increments the outbound counter.
+    // Returns [ciphertext || 16-byte tag] on success, nullopt if the counter
+    // is exhausted (>= kRejectAfterMessages).
+    [[nodiscard]] auto Seal(ConstByteSpan plaintext)
+        -> std::optional<std::vector<std::uint8_t>>;
+
+    // Decrypts an inbound packet using the counter from the Transport header.
+    // Checks the replay window before decryption and marks the counter as seen
+    // only after successful authentication. Returns nullopt on any failure
+    // without modifying session state — a failed authentication is silent.
+    [[nodiscard]] auto Open(std::uint64_t counter, ConstByteSpan ciphertext_with_tag)
+        -> std::optional<std::vector<std::uint8_t>>;
+
+private:
+    // Encodes counter into a 12-byte ChaCha20 nonce (WireGuard convention:
+    // bytes 0-3 are zero, bytes 4-11 are counter in little-endian).
+    static auto CounterToNonce(std::uint64_t counter)
+        -> core::cryptography::chacha20_poly1305::Nonce;
 };
 
 } // namespace core::session
