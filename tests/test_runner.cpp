@@ -60,6 +60,7 @@ using core::utils::Logger;
 static int total_tests  = 0;
 static int passed_tests = 0;
 static int failed_tests = 0;
+static double total_test_time_ns = 0.0;
 
 static std::string log_filename;
 static std::string_view g_filter = "";
@@ -83,6 +84,7 @@ void Run(bool (*test)(), std::string_view name) {
     timer.Start();
     bool result = test();
     timer.Stop();
+    total_test_time_ns += static_cast<double>(timer.Elapsed().count());
 
     if (result) {
         passed_tests++;
@@ -107,6 +109,7 @@ void Run(bool (*test)(std::function<void()>), std::string_view name) {
 
     bool result = test([&timer] { timer.Start(); });
     timer.Stop();
+    total_test_time_ns += static_cast<double>(timer.Elapsed().count());
 
     if (result) {
         passed_tests++;
