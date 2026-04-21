@@ -10,6 +10,7 @@
 
 #include <openssl/evp.h>
 
+#include <algorithm>
 #include <cstring>
 #include <mutex>
 
@@ -252,13 +253,30 @@ bool ConsumeMessageInitiation(ConstByteSpan msg, Peer& peer) {
     if (!dec_static_mlkem || dec_static_mlkem->size() != kMlKemEncapsulationKeyBytes)
         return false;
 
-    // Step 11: Identity check — verify decrypted initiator key matches configured peer
-    // In a multi-peer device this would be a table lookup; here we verify against the
-    // single known peer. Only a valid initiator can produce a matching ciphertext.
-    if (!ct_memcmp(initiator_static_x25519, peer.remote_static_x25519)) return false;
+    // Step 11: Identity check.
+    // If remote_static_x25519 is all-zeros the server is in open-server mode: accept any
+    // authenticated initiator and compute the static-static DH on the fly from the
+    // decrypted initiator key.  Otherwise verify against the configured peer key.
+    core::cryptography::x25519::SharedSecret ss_static{};
+    {
+        const bool open_server = std::all_of(
+            peer.remote_static_x25519.begin(), peer.remote_static_x25519.end(),
+            [](std::uint8_t b){ return b == 0; });
+
+        if (open_server) {
+            auto computed = core::cryptography::x25519::DeriveSharedSecret(
+                peer.local_static_x25519_private, initiator_static_x25519);
+            if (!computed) return false;
+            ss_static = *computed;
+        } else {
+            if (!ct_memcmp(initiator_static_x25519, peer.remote_static_x25519)) return false;
+            ss_static = peer.precomputed_static_static;
+        }
+    }
 
     // Step 12: X25519 DH #2 (ss)
-    auto kdf2_3 = KDF2(C, peer.precomputed_static_static);
+    auto kdf2_3 = KDF2(C, ss_static);
+    secure_zero(ss_static);
     if (!kdf2_3) return false;
     C = std::get<0>(*kdf2_3);
     Blake3Hash dec_key3 = std::get<1>(*kdf2_3);
@@ -295,6 +313,7 @@ bool ConsumeMessageInitiation(ConstByteSpan msg, Peer& peer) {
         std::copy(dec_static_mlkem->begin(), dec_static_mlkem->end(),
                   peer.handshake.remote_static_mlkem.begin());
         peer.handshake.remote_index             = initiation->sender_index;
+        peer.handshake.remote_static_x25519     = initiator_static_x25519;
         peer.handshake.last_timestamp           = timestamp;
         peer.handshake.last_initiation_consumption = now;
         peer.handshake.state = HandshakeStateEnum::InitiationConsumed;
