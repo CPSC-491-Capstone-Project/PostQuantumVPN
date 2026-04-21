@@ -5,6 +5,10 @@
 #include "session_manager.hpp"
 #include "ipv4.hpp"
 
+#include <set>
+#include <thread>
+#include <vector>
+
 using core::session::Session;
 using core::session::SessionManager;
 using core::session::SessionSecrets;
@@ -100,6 +104,82 @@ bool SessionManagerTest_TransitionSession_FailureKeepsOldSession() {
     bool old_still_active = (mgr.Lookup(200) == old_s);
 
     return test_helper("1", std::to_string(new_failed && old_still_active));
+}
+
+// GenerateSenderIndex returns a non-zero value
+bool SessionManagerTest_GenerateSenderIndex_NonZero() {
+    SessionManager mgr;
+    std::uint32_t idx = mgr.GenerateSenderIndex();
+    return test_helper("1", std::to_string(idx != 0));
+}
+
+// GenerateSenderIndex returns unique values across multiple calls
+bool SessionManagerTest_GenerateSenderIndex_Unique() {
+    SessionManager mgr;
+    std::set<std::uint32_t> seen;
+    for (int i = 0; i < 100; ++i) seen.insert(mgr.GenerateSenderIndex());
+    return test_helper("100", std::to_string(seen.size()));
+}
+
+// GenerateSenderIndex does not collide with existing sessions
+bool SessionManagerTest_GenerateSenderIndex_NoCollision() {
+    SessionManager mgr;
+    for (std::uint32_t i = 1; i <= 20; ++i)
+        mgr.ActivateSession(MakeSecrets(0x10, i, i + 1000), MakeEndpoint());
+
+    for (int i = 0; i < 50; ++i) {
+        std::uint32_t idx = mgr.GenerateSenderIndex();
+        if (mgr.Lookup(idx) != nullptr)
+            return test_helper("no collision", "collision at " + std::to_string(idx));
+    }
+    return test_helper("1", "1");
+}
+
+// GetSessionCount starts at zero
+bool SessionManagerTest_GetSessionCount_StartsAtZero() {
+    SessionManager mgr;
+    return test_helper("0", std::to_string(mgr.GetSessionCount()));
+}
+
+// GetSessionCount increments on ActivateSession
+bool SessionManagerTest_GetSessionCount_IncrementsOnActivate() {
+    SessionManager mgr;
+    mgr.ActivateSession(MakeSecrets(0xAA, 1, 2), MakeEndpoint());
+    mgr.ActivateSession(MakeSecrets(0xBB, 3, 4), MakeEndpoint());
+    return test_helper("2", std::to_string(mgr.GetSessionCount()));
+}
+
+// GetSessionCount decrements on Remove
+bool SessionManagerTest_GetSessionCount_DecrementsOnRemove() {
+    SessionManager mgr;
+    mgr.ActivateSession(MakeSecrets(0xCC, 10, 20), MakeEndpoint());
+    mgr.ActivateSession(MakeSecrets(0xDD, 11, 21), MakeEndpoint());
+    mgr.Remove(10);
+    return test_helper("1", std::to_string(mgr.GetSessionCount()));
+}
+
+// Concurrent Lookup from multiple threads — shared_mutex must not deadlock or corrupt
+bool SessionManagerTest_ConcurrentLookup_Safe() {
+    SessionManager mgr;
+    mgr.ActivateSession(MakeSecrets(0xEE, 999, 888), MakeEndpoint());
+
+    constexpr int kThreads = 8;
+    constexpr int kLoops   = 500;
+    std::vector<std::thread> threads;
+    std::atomic<int> success_count{0};
+
+    threads.reserve(kThreads);
+    for (int t = 0; t < kThreads; ++t) {
+        threads.emplace_back([&] {
+            for (int i = 0; i < kLoops; ++i) {
+                Session* s = mgr.Lookup(999);
+                if (s != nullptr) success_count.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
+    }
+    for (auto& th : threads) th.join();
+
+    return test_helper(std::to_string(kThreads * kLoops), std::to_string(success_count.load()));
 }
 
 #endif // _PQVPN_TESTS_SESSION_MANAGER_TESTS_HPP_

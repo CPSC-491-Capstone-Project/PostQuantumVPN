@@ -50,9 +50,6 @@ private:
     // a raw pointer. Caller must not hold mutex_ when calling this.
     Session* CreateSession(SessionSecrets secrets, core::network::Endpoint peer);
 
-    // Builds a SipHasher with a fresh random key. Called once in the constructor.
-    static struct SipHasher MakeHasher();
-
     // SipHash24-keyed hasher for the session table.
     // Randomised at construction time to prevent hash-flooding DoS attacks where
     // an attacker crafts receiver_index values that all land in the same bucket.
@@ -66,6 +63,9 @@ private:
             return static_cast<std::size_t>(hasher(key, buf));
         }
     };
+
+    // Builds a SipHasher with a fresh random key. Called once in the constructor.
+    static SipHasher MakeHasher();
 
     std::unordered_map<std::uint32_t, std::unique_ptr<Session>, SipHasher> sessions_;
 

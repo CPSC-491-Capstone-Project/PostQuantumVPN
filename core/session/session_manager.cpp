@@ -11,7 +11,7 @@ namespace core::session {
 
 SessionManager::SessionManager() : sessions_(0, MakeHasher()) {}
 
-struct SessionManager::SipHasher SessionManager::MakeHasher() {
+SessionManager::SipHasher SessionManager::MakeHasher() {
     SipHasher h;
     RAND_bytes(h.key.data(), static_cast<int>(h.key.size()));
     return h;

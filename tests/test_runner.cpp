@@ -474,6 +474,15 @@ int main(int argc, char* argv[]) {
     Run(SessionManagerTest_TransitionSession_OldRemovedNewActive, "SessionManager: transition removes old");
     Run(SessionManagerTest_TransitionSession_FailureKeepsOldSession, "SessionManager: transition fail keeps old");
 
+    std::cout << "\n";
+    Run(SessionManagerTest_GenerateSenderIndex_NonZero,        "SessionManager: GenerateSenderIndex non-zero");
+    Run(SessionManagerTest_GenerateSenderIndex_Unique,         "SessionManager: GenerateSenderIndex unique x100");
+    Run(SessionManagerTest_GenerateSenderIndex_NoCollision,    "SessionManager: GenerateSenderIndex no collision");
+    Run(SessionManagerTest_GetSessionCount_StartsAtZero,       "SessionManager: GetSessionCount starts at 0");
+    Run(SessionManagerTest_GetSessionCount_IncrementsOnActivate,"SessionManager: GetSessionCount increments");
+    Run(SessionManagerTest_GetSessionCount_DecrementsOnRemove, "SessionManager: GetSessionCount decrements");
+    Run(SessionManagerTest_ConcurrentLookup_Safe,              "SessionManager: concurrent Lookup safe (8 threads)");
+
     // =============================================================================
     // Replay Window Tests
     // =============================================================================
