@@ -31,6 +31,7 @@
 #include "ml_kem_tests.hpp"
 #include "random_tests.hpp"
 #include "secure_memory_tests.hpp"
+#include "session_lifecycle_tests.hpp"
 #include "session_manager_tests.hpp"
 #include "siphash_tests.hpp"
 #include "tai64n_tests.hpp"
@@ -662,6 +663,34 @@ int main(int argc, char* argv[]) {
     Run(DeriveSessionKeys_WrongState_Rejected,               "DeriveSessionKeys: wrong state rejected");
     Run(DeriveSessionKeys_KeysAreUnique,                     "DeriveSessionKeys: keys are unique per handshake");
     Run(DeriveSessionKeys_OneServer_FiveClients_Concurrent,  "DeriveSessionKeys: 1 server + 5 clients concurrent");
+
+    // =============================================================================
+    // Session Lifecycle Tests (IsExpired, NeedsRekey, Keepalive)
+    // =============================================================================
+    std::cout << "\n";
+    Run(SessionLifecycleTest_IsExpired_FreshSession,      "SessionLifecycle: IsExpired fresh");
+    Run(SessionLifecycleTest_IsExpired_ExpiredSession,    "SessionLifecycle: IsExpired expired");
+    Run(SessionLifecycleTest_IsExpired_ExactBoundary,     "SessionLifecycle: IsExpired boundary");
+    Run(SessionLifecycleTest_NeedsRekey_FreshSession,     "SessionLifecycle: NeedsRekey fresh");
+    Run(SessionLifecycleTest_NeedsRekey_OldSession,       "SessionLifecycle: NeedsRekey old session");
+    Run(SessionLifecycleTest_NeedsRekey_CounterAtThreshold,"SessionLifecycle: NeedsRekey counter overflow");
+    Run(SessionLifecycleTest_NeedsRekey_FlagBlocks,       "SessionLifecycle: NeedsRekey flag blocks");
+    Run(SessionLifecycleTest_NeedsRekey_JitterExtends,    "SessionLifecycle: NeedsRekey jitter extends");
+    Run(SessionLifecycleTest_CheckRekeys_NoSessions,      "SessionLifecycle: CheckRekeys empty");
+    Run(SessionLifecycleTest_CheckRekeys_StaleSession,    "SessionLifecycle: CheckRekeys stale");
+    Run(SessionLifecycleTest_CheckRekeys_FreshSessionExcluded, "SessionLifecycle: CheckRekeys fresh excluded");
+    Run(SessionLifecycleTest_SweepExpired_RemovesExpired, "SessionLifecycle: SweepExpired removes");
+    Run(SessionLifecycleTest_SweepExpired_KeepsFresh,     "SessionLifecycle: SweepExpired keeps fresh");
+
+    std::cout << "\n";
+    Run(SessionLifecycleTest_Keepalive_FreshSession_False,       "SessionLifecycle: keepalive fresh false");
+    Run(SessionLifecycleTest_Keepalive_NoInboundTraffic_False,   "SessionLifecycle: keepalive no inbound false");
+    Run(SessionLifecycleTest_Keepalive_AfterReceive_IdleSend_True,"SessionLifecycle: keepalive idle send true");
+    Run(SessionLifecycleTest_Keepalive_RecentSend_False,         "SessionLifecycle: keepalive recent send false");
+    Run(SessionLifecycleTest_CreateKeepalive_Produces16Bytes,    "SessionLifecycle: CreateKeepalive 16 bytes");
+    Run(SessionLifecycleTest_CreateKeepalive_Roundtrip,          "SessionLifecycle: CreateKeepalive roundtrip");
+    Run(SessionLifecycleTest_GetKeepaliveDue_NoSessions,         "SessionLifecycle: GetKeepaliveDue empty");
+    Run(SessionLifecycleTest_GetKeepaliveDue_DueSession,         "SessionLifecycle: GetKeepaliveDue due session");
 
     // =============================================================================
     // Future Tests
