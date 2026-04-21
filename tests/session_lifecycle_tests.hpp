@@ -135,7 +135,7 @@ bool SessionLifecycleTest_NeedsRekey_JitterExtends() {
 bool SessionLifecycleTest_CheckRekeys_NoSessions() {
     SessionManager mgr;
     const auto result = mgr.CheckRekeys();
-    return test_helper("0", std::to_string(result.empty()));
+    return test_helper("1", std::to_string(result.empty()));
 }
 
 bool SessionLifecycleTest_CheckRekeys_StaleSession() {
@@ -244,7 +244,7 @@ bool SessionLifecycleTest_CreateKeepalive_Roundtrip() {
 
 bool SessionLifecycleTest_GetKeepaliveDue_NoSessions() {
     SessionManager mgr;
-    return test_helper("0", std::to_string(mgr.GetKeepaliveDue().empty()));
+    return test_helper("1", std::to_string(mgr.GetKeepaliveDue().empty()));
 }
 
 bool SessionLifecycleTest_GetKeepaliveDue_DueSession() {
