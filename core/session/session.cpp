@@ -42,6 +42,8 @@ auto Session::Seal(ConstByteSpan plaintext)
     out.reserve(enc->ciphertext.size() + enc->tag.size());
     out.insert(out.end(), enc->ciphertext.begin(), enc->ciphertext.end());
     out.insert(out.end(), enc->tag.begin(), enc->tag.end());
+
+    last_sent_time = std::chrono::steady_clock::now();
     return out;
 }
 
@@ -87,6 +89,28 @@ auto Session::Open(std::uint64_t counter, ConstByteSpan ciphertext_with_tag)
     replay_window.Accept(counter);
     last_received_time = std::chrono::steady_clock::now();
     return plaintext;
+}
+
+bool Session::IsExpired() const {
+    return (std::chrono::system_clock::now() - created) > core::handshake::kRejectAfterTime;
+}
+
+bool Session::NeedsRekey() const {
+    if (rekey_requested.load(std::memory_order_relaxed)) return false;
+    if ((std::chrono::system_clock::now() - created) > (core::handshake::kRekeyAfterTime + rekey_jitter))
+        return true;
+    if (send_nonce.load(std::memory_order_relaxed) >= core::handshake::kRekeyAfterMessages)
+        return true;
+    return false;
+}
+
+bool Session::ShouldSendKeepalive() const {
+    if (last_received_time == std::chrono::steady_clock::time_point{}) return false;
+    return (std::chrono::steady_clock::now() - last_sent_time) > core::handshake::kKeepaliveTimeout;
+}
+
+std::optional<std::vector<std::uint8_t>> Session::CreateKeepalive() {
+    return Seal(ConstByteSpan{});
 }
 
 } // namespace core::session

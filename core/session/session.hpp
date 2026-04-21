@@ -48,15 +48,8 @@ struct Session {
     // Timestamp of last successfully decrypted inbound packet
     std::chrono::steady_clock::time_point last_received_time{};
 
-    // Timestamp of last successfully encrypted outbound packet
     std::chrono::steady_clock::time_point last_sent_time{};
-
-    // Random jitter (0..334 ms) added to kRekeyAfterTime to prevent thundering-herd rekeys.
-    // Generated once in SessionManager::CreateSession.
     std::chrono::milliseconds rekey_jitter{0};
-
-    // Set to true when the event loop has already queued a rekey for this session.
-    // Prevents duplicate rekey triggers on the same session.
     std::atomic<bool> rekey_requested{false};
 
     // Inbound replay filter — single receive-loop access assumed
@@ -94,23 +87,10 @@ struct Session {
     [[nodiscard]] auto Open(std::uint64_t counter, ConstByteSpan ciphertext_with_tag)
         -> std::optional<std::vector<std::uint8_t>>;
 
-    // Returns true if the session age exceeds kRejectAfterTime (180 s).
     [[nodiscard]] bool IsExpired() const;
-
-    // Returns true if this session needs rekeying:
-    //   - age > kRekeyAfterTime + rekey_jitter, OR
-    //   - send_nonce >= kRekeyAfterMessages
-    // Always returns false when rekey_requested is already set.
     [[nodiscard]] bool NeedsRekey() const;
-
-    // Returns true when the session has received at least one inbound packet
-    // AND no outbound packet has been sent within kKeepaliveTimeout (10 s).
     [[nodiscard]] bool ShouldSendKeepalive() const;
-
-    // Encrypts an empty plaintext (16-byte tag only). Caller prepends the
-    // Transport header (receiver_index + counter) before sending.
-    [[nodiscard]] auto CreateKeepalive()
-        -> std::optional<std::vector<std::uint8_t>>;
+    [[nodiscard]] auto CreateKeepalive() -> std::optional<std::vector<std::uint8_t>>;
 
 private:
     // Encodes counter into a 12-byte ChaCha20 nonce (WireGuard convention:
