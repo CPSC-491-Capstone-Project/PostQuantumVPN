@@ -1,9 +1,11 @@
 #include "session_manager.hpp"
+#include "handshake_constants.hpp"
 #include "logger.hpp"
 
 #include <algorithm>
 #include <openssl/rand.h>
 #include <string>
+#include <vector>
 
 using core::utils::Logger;
 
@@ -78,6 +80,13 @@ Session* SessionManager::CreateSession(SessionSecrets secrets, core::network::En
     session->created        = std::chrono::system_clock::now();
     session->peer           = peer;
 
+    std::uint32_t jitter_raw = 0;
+    RAND_bytes(reinterpret_cast<unsigned char*>(&jitter_raw), sizeof(jitter_raw));
+    session->rekey_jitter = std::chrono::milliseconds{
+        jitter_raw % static_cast<std::uint32_t>(
+            core::handshake::kRekeyTimeoutJitterMax.count())
+    };
+
     Session* raw = session.get();
 
     {
@@ -102,6 +111,38 @@ std::uint32_t SessionManager::GenerateSenderIndex() {
 std::size_t SessionManager::GetSessionCount() {
     std::shared_lock<std::shared_mutex> lock(mutex_);
     return sessions_.size();
+}
+
+std::vector<std::uint32_t> SessionManager::CheckRekeys() {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::vector<std::uint32_t> result;
+    for (const auto& [index, session] : sessions_) {
+        if (session->NeedsRekey()) result.push_back(index);
+    }
+    return result;
+}
+
+std::size_t SessionManager::SweepExpired() {
+    std::unique_lock<std::shared_mutex> lock(mutex_);
+    std::size_t count = 0;
+    for (auto it = sessions_.begin(); it != sessions_.end(); ) {
+        if (it->second->IsExpired()) {
+            it = sessions_.erase(it);
+            ++count;
+        } else {
+            ++it;
+        }
+    }
+    return count;
+}
+
+std::vector<std::uint32_t> SessionManager::GetKeepaliveDue() {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    std::vector<std::uint32_t> result;
+    for (const auto& [index, session] : sessions_) {
+        if (session->ShouldSendKeepalive()) result.push_back(index);
+    }
+    return result;
 }
 
 } // namespace core::session

@@ -48,6 +48,10 @@ struct Session {
     // Timestamp of last successfully decrypted inbound packet
     std::chrono::steady_clock::time_point last_received_time{};
 
+    std::chrono::steady_clock::time_point last_sent_time{};
+    std::chrono::milliseconds rekey_jitter{0};
+    std::atomic<bool> rekey_requested{false};
+
     // Inbound replay filter — single receive-loop access assumed
     ReplayWindow replay_window{};
 
@@ -82,6 +86,11 @@ struct Session {
     // without modifying session state — a failed authentication is silent.
     [[nodiscard]] auto Open(std::uint64_t counter, ConstByteSpan ciphertext_with_tag)
         -> std::optional<std::vector<std::uint8_t>>;
+
+    [[nodiscard]] bool IsExpired() const;
+    [[nodiscard]] bool NeedsRekey() const;
+    [[nodiscard]] bool ShouldSendKeepalive() const;
+    [[nodiscard]] auto CreateKeepalive() -> std::optional<std::vector<std::uint8_t>>;
 
 private:
     // Encodes counter into a 12-byte ChaCha20 nonce (WireGuard convention:

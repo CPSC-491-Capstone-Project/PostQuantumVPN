@@ -10,6 +10,7 @@
 #include <memory>
 #include <shared_mutex>
 #include <unordered_map>
+#include <vector>
 
 namespace core::session {
 
@@ -44,6 +45,15 @@ public:
 
     // Returns the number of active sessions.
     std::size_t GetSessionCount();
+
+    // Returns sender indices for all sessions where NeedsRekey() is true.
+    std::vector<std::uint32_t> CheckRekeys();
+
+    // Removes sessions where IsExpired() is true. Returns count removed.
+    std::size_t SweepExpired();
+
+    // Returns sender indices for all sessions where ShouldSendKeepalive() is true.
+    std::vector<std::uint32_t> GetKeepaliveDue();
 
 private:
     // Constructs a Session from secrets, inserts it into the table, and returns
