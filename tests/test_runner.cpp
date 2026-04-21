@@ -149,6 +149,7 @@ int main(int argc, char* argv[]) {
 
     log_filename = MakeLogFilename();
     InitLoggerToFile();
+    auto suite_start = std::chrono::steady_clock::now();
 
     std::cout << "========================================\n";
     std::cout << "Running Test Suite\n";
