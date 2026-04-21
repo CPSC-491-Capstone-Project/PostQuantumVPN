@@ -2,11 +2,20 @@
 #include "logger.hpp"
 
 #include <algorithm>
+#include <openssl/rand.h>
 #include <string>
 
 using core::utils::Logger;
 
 namespace core::session {
+
+SessionManager::SessionManager() : sessions_(0, MakeHasher()) {}
+
+struct SessionManager::SipHasher SessionManager::MakeHasher() {
+    SipHasher h;
+    RAND_bytes(h.key.data(), static_cast<int>(h.key.size()));
+    return h;
+}
 
 Session* SessionManager::ActivateSession(SessionSecrets secrets, core::network::Endpoint peer) {
     const bool send_zero = std::all_of(secrets.send_key.begin(), secrets.send_key.end(),
@@ -47,14 +56,14 @@ Session* SessionManager::TransitionSession(std::uint32_t old_sender_index,
 }
 
 Session* SessionManager::Lookup(std::uint32_t sender_index) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::shared_lock<std::shared_mutex> lock(mutex_);
     auto it = sessions_.find(sender_index);
     if (it == sessions_.end()) return nullptr;
     return it->second.get();
 }
 
 void SessionManager::Remove(std::uint32_t sender_index) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::shared_mutex> lock(mutex_);
     sessions_.erase(sender_index);
 }
 
@@ -72,11 +81,27 @@ Session* SessionManager::CreateSession(SessionSecrets secrets, core::network::En
     Session* raw = session.get();
 
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::unique_lock<std::shared_mutex> lock(mutex_);
         sessions_[secrets.sender_index] = std::move(session);
     }
 
     return raw;
+}
+
+std::uint32_t SessionManager::GenerateSenderIndex() {
+    for (;;) {
+        std::uint32_t index = 0;
+        RAND_bytes(reinterpret_cast<unsigned char*>(&index), sizeof(index));
+        if (index == 0) continue;
+
+        std::shared_lock<std::shared_mutex> lock(mutex_);
+        if (sessions_.find(index) == sessions_.end()) return index;
+    }
+}
+
+std::size_t SessionManager::GetSessionCount() {
+    std::shared_lock<std::shared_mutex> lock(mutex_);
+    return sessions_.size();
 }
 
 } // namespace core::session
