@@ -17,6 +17,7 @@
 // --- Test module headers (alphabetical) ---
 #include "bit_utils_tests.hpp"
 #include "blake3_tests.hpp"
+#include "client_tests.hpp"
 #include "chacha20_poly1305_tests.hpp"
 #include "event_poller_tests.hpp"
 #include "derive_session_keys_tests.hpp"
@@ -695,6 +696,14 @@ int main(int argc, char* argv[]) {
     Run(SessionLifecycleTest_CreateKeepalive_Roundtrip,          "SessionLifecycle: CreateKeepalive roundtrip");
     Run(SessionLifecycleTest_GetKeepaliveDue_NoSessions,         "SessionLifecycle: GetKeepaliveDue empty");
     Run(SessionLifecycleTest_GetKeepaliveDue_DueSession,         "SessionLifecycle: GetKeepaliveDue due session");
+
+    // =============================================================================
+    // Client Tests
+    // =============================================================================
+    std::cout << "\n";
+    Run(ClientTest_Init_Loopback_Succeeds, "Client: Init loopback succeeds");
+    Run(ClientTest_StopBeforeRun,          "Client: Stop before Run returns immediately");
+    Run(ClientTest_DoubleShutdown,         "Client: Double Shutdown does not crash");
 
     // =============================================================================
     // Future Tests
