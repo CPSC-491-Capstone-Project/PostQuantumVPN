@@ -18,7 +18,7 @@ using core::utils::ToHex;
 using core::utils::FromHex;
 
 static bool SaveKeys(std::string_view path, const KeyConfig& keys) {
-    std::ofstream f(std::string(path));
+    std::ofstream f{std::string{path}};
     if (!f) return false;
 
     f << "# PostQuantumVPN Keys\n"
@@ -33,7 +33,7 @@ static bool SaveKeys(std::string_view path, const KeyConfig& keys) {
 }
 
 static bool LoadKeys(std::string_view path, KeyConfig& out) {
-    std::ifstream f(std::string(path));
+    std::ifstream f{std::string{path}};
     if (!f) return false;
 
     bool got[4]{};
@@ -69,7 +69,7 @@ static bool LoadKeys(std::string_view path, KeyConfig& out) {
 auto LoadOrGenerateKeys(std::string_view config_path) -> std::optional<KeyConfig> {
     KeyConfig keys{};
 
-    if (std::ifstream probe(std::string(config_path)); probe.good()) {
+    if (std::ifstream probe{std::string{config_path}}; probe.good()) {
         probe.close();
         if (!LoadKeys(config_path, keys)) {
             Logger::Error("key_config: Failed to parse " + std::string(config_path));
