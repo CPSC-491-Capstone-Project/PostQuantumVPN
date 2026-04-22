@@ -1,13 +1,10 @@
 #include "logger.hpp"
 #include "server.hpp"
 #include "handshake_constants.hpp"
-#include "x25519.hpp"
-#include "ml_kem.hpp"
+#include "config/key_config.hpp"
 
 #include <iostream>
 #include <string>
-
-#include <openssl/evp.h>
 
 using core::utils::Logger;
 using core::network::IPv4;
@@ -20,43 +17,20 @@ int main(int argc, char* argv[]) {
 
     core::handshake::InitHandshakeConstants();
 
-    // --- Generate server static keys -------------------------------------------
-
-    auto x25519_kp = core::cryptography::x25519::GenerateKeyPair();
-    if (!x25519_kp) {
-        Logger::Error("main: Failed to generate X25519 keypair");
+    auto keys = core::config::LoadOrGenerateKeys("server_keys.conf");
+    if (!keys) {
+        Logger::Error("main: Failed to load or generate server keys");
         return 1;
     }
 
-    auto mlkem_kp = core::cryptography::ml_kem::GenerateKeyPair(
-        core::cryptography::ml_kem::ParameterSet::ML_KEM_768);
-    if (!mlkem_kp) {
-        Logger::Error("main: Failed to generate ML-KEM keypair");
-        return 1;
-    }
-
-    // Extract ML-KEM decapsulation key (private key bytes)
-    std::array<std::uint8_t, 2400> mlkem_dk{};
-    std::size_t dk_len = 2400;
-    if (EVP_PKEY_get_raw_private_key(mlkem_kp->pkey.get(), mlkem_dk.data(), &dk_len) != 1
-        || dk_len != 2400) {
-        Logger::Error("main: Failed to extract ML-KEM decapsulation key");
-        return 1;
-    }
-
-    std::array<std::uint8_t, 1184> mlkem_ek{};
-    std::copy(mlkem_kp->public_key.begin(), mlkem_kp->public_key.end(), mlkem_ek.begin());
-
-    Logger::Info("main: Server static keys generated");
-
-    // --- Configure and start server --------------------------------------------
+    core::config::PrintPublicKeys(*keys);
 
     Server server;
     server.SetBindAddress(IPv4::Any())
           .SetPort(51820)
           .SetPollTimeoutMs(250)
           .SetTunInterface("pqvpn0", IPv4(10, 8, 0, 1))
-          .SetStaticKeys(x25519_kp->private_key, x25519_kp->public_key, mlkem_dk, mlkem_ek);
+          .SetStaticKeys(keys->x25519_priv, keys->x25519_pub, keys->mlkem_dk, keys->mlkem_ek);
 
     if (!server.Init()) {
         Logger::Error("main: Server initialization failed");
