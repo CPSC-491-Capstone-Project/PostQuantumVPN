@@ -1,7 +1,7 @@
 #include "logger.hpp"
 #include "server.hpp"
 #include "handshake_constants.hpp"
-#include "config/key_config.hpp"
+#include "key_config.hpp"
 
 #include <iostream>
 #include <string>
