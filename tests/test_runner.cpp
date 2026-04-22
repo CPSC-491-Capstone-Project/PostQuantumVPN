@@ -60,6 +60,7 @@ using core::utils::Logger;
 static int total_tests  = 0;
 static int passed_tests = 0;
 static int failed_tests = 0;
+static double total_test_time_ns = 0.0;
 
 static std::string log_filename;
 static std::string_view g_filter = "";
@@ -83,6 +84,7 @@ void Run(bool (*test)(), std::string_view name) {
     timer.Start();
     bool result = test();
     timer.Stop();
+    total_test_time_ns += static_cast<double>(timer.Elapsed().count());
 
     if (result) {
         passed_tests++;
@@ -107,6 +109,7 @@ void Run(bool (*test)(std::function<void()>), std::string_view name) {
 
     bool result = test([&timer] { timer.Start(); });
     timer.Stop();
+    total_test_time_ns += static_cast<double>(timer.Elapsed().count());
 
     if (result) {
         passed_tests++;
@@ -146,6 +149,7 @@ int main(int argc, char* argv[]) {
 
     log_filename = MakeLogFilename();
     InitLoggerToFile();
+    auto suite_start = std::chrono::steady_clock::now();
 
     std::cout << "========================================\n";
     std::cout << "Running Test Suite\n";
@@ -705,6 +709,15 @@ int main(int argc, char* argv[]) {
     std::cout << "Total:  " << total_tests  << "\n";
     std::cout << GREEN << "Passed: " << passed_tests << RESET << "\n";
     std::cout << RED   << "Failed: " << failed_tests << RESET << "\n\n";
+
+    // Time 1: sum of individual test timers (excludes setup between tests)
+    auto total_test_ms = total_test_time_ns / 1'000'000.0;
+    std::cout << "Time 1 (test execution):  " << total_test_ms << " ms\n";
+
+    // Time 2: total wall clock time including all setup and teardown
+    auto suite_end = std::chrono::steady_clock::now();
+    auto total_wall_ms = std::chrono::duration<double, std::milli>(suite_end - suite_start).count();
+    std::cout << "Time 2 (total wall time): " << total_wall_ms << " ms\n\n";
 }
 
 // =============================================================================
