@@ -3,6 +3,7 @@
 
 #include "udp_socket.hpp"
 #include "event_poller.hpp"
+#include "tun_device.hpp"
 #include "handshake_constants.hpp"
 #include "handshake_messages.hpp"
 
@@ -10,11 +11,13 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace client {
 
 using core::network::UDPSocket;
 using core::network::EventPoller;
+using core::network::TunDevice;
 using core::network::EventMask;
 using core::network::PollEvent;
 using core::network::Endpoint;
@@ -31,8 +34,11 @@ public:
     Client(Client&&)                 = delete;
     Client& operator=(Client&&)      = delete;
 
-    // Opens socket (no bind), sets non-blocking, stores server endpoint,
-    // creates epoll, registers socket for Readable.
+    // Configure TUN interface name before calling Init() (default: "tun0").
+    Client& SetTunInterface(std::string_view ifname);
+
+    // Opens socket (no bind), sets SO_MARK, sets non-blocking, stores server
+    // endpoint, opens TUN, opens epoll, registers both fds for Readable.
     bool Init(const std::string& server_ip, std::uint16_t server_port);
 
     // Calls SendInitiation() stub, then polls until Stop() is called.
@@ -41,22 +47,34 @@ public:
     // Sets running_ = false; a subsequent Run() call returns immediately.
     void Stop();
 
-    // Closes poller then socket.  Safe to call more than once.
+    // Closes TUN, poller, then socket.  Safe to call more than once.
     void Shutdown();
 
     [[nodiscard]] bool IsInitialized() const { return initialized_; }
 
 private:
+    // --- Network ---
     UDPSocket   socket_{};
     EventPoller poller_{};
-    std::array<std::uint8_t, 1500> recv_buffer_{};
-    Endpoint    server_endpoint_{};
-    std::atomic<bool> running_{false};
+    TunDevice   tun_{};
+    int         inject_fd_{-1};  // raw socket for injecting decapsulated inbound IP packets
 
+    std::array<std::uint8_t, 1500> recv_buffer_{};
+    std::array<std::uint8_t, 1500> tun_buffer_{};
+
+    Endpoint    server_endpoint_{};
+
+    // --- Config ---
+    std::string tun_ifname_{"tun0"};
+    bool        use_tun_{false};
+
+    // --- State ---
+    std::atomic<bool> running_{false};
     bool initialized_{false};
     bool stopped_{false};
 
-    // --- Stubs ---
+    // --- Event handlers ---
+    void HandleTunRead();
     void SendInitiation();
     void HandleInitiation(ConstData data, const Endpoint& sender);
     void HandleResponse(ConstData data, const Endpoint& sender);
