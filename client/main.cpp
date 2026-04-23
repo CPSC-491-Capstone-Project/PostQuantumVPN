@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 
     Client client;
 
-    if (!client.Init("127.0.0.1", 51820)) {
+    if (!client.Init("192.168.0.169", 51820)) {
         Logger::Error("main: Client initialization failed");
         return 1;
     }

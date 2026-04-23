@@ -115,7 +115,10 @@ namespace core::network {
 
         BytesTransferred len = ::write(handle_, buf.data(), buf.size());
         if (len < 0) {
-            Logger::Error("TunDevice: Write failed for handle: " + std::to_string(handle_));
+            const int err = errno;
+            if (err == EAGAIN || err == EWOULDBLOCK) return 0;
+            Logger::Error("TunDevice: Write failed for handle: " + std::to_string(handle_) +
+                          " errno=" + std::to_string(err) + " (" + ::strerror(err) + ")");
         }
 
         return len;
