@@ -33,71 +33,82 @@ endif
 # ----- File Extensions -----
 CXX_EXT := cpp
 
-# ----- makefile Config -----
+# ----- Makefile Config -----
 MAKEFLAGS += --no-print-directory
 
-# ----- Default target  -----
+# ----- Default target -----
 .DEFAULT_GOAL := help
 
 # ----- Platform -----
 UNAME_S := $(shell uname -s)
 ifeq ($(OS),Windows_NT)
-	PLATFORM := windows
+  PLATFORM := windows
 else ifeq ($(UNAME_S),Linux)
-	PLATFORM := linux
+  PLATFORM := linux
 else ifeq ($(UNAME_S),Darwin)
-	PLATFORM := macos
+  PLATFORM := macos
 else
-	$(error Unsupported OS: $(UNAME_S))
+  $(error Unsupported OS: $(UNAME_S))
 endif
 
 # ----- Lib Detections -----
 ifeq ($(PLATFORM),macos)
-	OPENSSL_PREFIX := $(shell brew --prefix openssl 2>/dev/null)
-	ifdef OPENSSL_PREFIX
-		LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include
-		LDFLAGS := -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto
-	else
-		OPENSSL_FOUND := no
-	endif
+  OPENSSL_PREFIX := $(shell brew --prefix openssl 2>/dev/null)
+  ifdef OPENSSL_PREFIX
+    LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include
+    LDFLAGS := -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto
+  else
+    OPENSSL_FOUND := no
+  endif
 else ifeq ($(PLATFORM),linux)
-	# If OPENSSL_PREFIX is set (e.g. /usr/local/openssl-3.5), use it directly.
-	# Otherwise fall back to pkg-config.
-	ifdef OPENSSL_PREFIX
-		LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include
-		LDFLAGS := -L$(OPENSSL_PREFIX)/lib64 -lssl -lcrypto -Wl,-rpath,$(OPENSSL_PREFIX)/lib64
-	else
-		OPENSSL_VERSION := $(shell pkg-config --modversion openssl 2>/dev/null)
+  # If OPENSSL_PREFIX is set (e.g. /usr/local/openssl-3.5), use it directly.
+  # Otherwise fall back to pkg-config.
+  ifdef OPENSSL_PREFIX
+    LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include
+    LDFLAGS := -L$(OPENSSL_PREFIX)/lib64 -lssl -lcrypto -Wl,-rpath,$(OPENSSL_PREFIX)/lib64
+  else
+    OPENSSL_VERSION := $(shell pkg-config --modversion openssl 2>/dev/null)
 
-		OPENSSL_OK := $(shell \
-		v=$(OPENSSL_VERSION); \
-		major=$$(echo $$v | cut -d. -f1); \
-		minor=$$(echo $$v | cut -d. -f2); \
-		if [ $$major -gt 3 ] || [ $$major -eq 3 -a $$minor -ge 5 ]; then echo yes; else echo no; fi)
+    OPENSSL_OK := $(shell \
+      v=$(OPENSSL_VERSION); \
+      major=$$(echo $$v | cut -d. -f1); \
+      minor=$$(echo $$v | cut -d. -f2); \
+      if [ $$major -gt 3 ] || [ $$major -eq 3 -a $$minor -ge 5 ]; then echo yes; else echo no; fi)
 
-		ifeq ($(OPENSSL_OK),yes)
-			LIB_CFLAGS := $(shell pkg-config --cflags openssl)
-			LDFLAGS := $(shell pkg-config --libs openssl)
-		else
-			$(error OpenSSL >= 3.5 required, found $(OPENSSL_VERSION))
-		endif
-	endif
+    ifeq ($(OPENSSL_OK),yes)
+      LIB_CFLAGS := $(shell pkg-config --cflags openssl)
+      LDFLAGS := $(shell pkg-config --libs openssl)
+    else
+      $(info OpenSSL >= 3.5 REQUIRED.)
+      $(info Found: $(OPENSSL_VERSION).)
+      $(info )
+      $(info Fix:)
+      $(info 1) Install OpenSSL 3.5+)
+      $(info 2) Then either:)
+      $(info    export OPENSSL_PREFIX=/usr/local/openssl-3.5)
+      $(info    OR)
+      $(info    export PKG_CONFIG_PATH=/usr/local/openssl-3.5/lib64/pkgconfig)
+      $(info )
+      $(info Then re-run make.)
+      OPENSSL_FOUND := no
+    endif
+  endif
 else ifeq ($(PLATFORM),windows)
-	OPENSSL_CHECK := $(shell where openssl >nul 2>&1 && echo yes || echo no)
-	ifeq ($(OPENSSL_CHECK),yes)
-		LIB_CFLAGS :=
-		LDFLAGS := -lssl -lcrypto -lws2_32
-	else
-		OPENSSL_FOUND := no
-	endif
+  OPENSSL_CHECK := $(shell where openssl >nul 2>&1 && echo yes || echo no)
+  ifeq ($(OPENSSL_CHECK),yes)
+    LIB_CFLAGS :=
+    LDFLAGS := -lssl -lcrypto -lws2_32
+  else
+    OPENSSL_FOUND := no
+  endif
 endif
 
 ifeq ($(OPENSSL_FOUND),no)
-$(info )
-$(info  ERROR: OpenSSL development libraries not found.)
-$(info  Please install OpenSSL and ensure headers are in your include path.)
-$(info )
-$(error OpenSSL is required to build this project)
+  $(info )
+  $(info ERROR: OpenSSL development libraries not found.)
+  $(info Please install OpenSSL and ensure headers are in your include path.)
+  $(info )
+  $(error OpenSSL is required to build this project)
 endif
 
 # ==============================================================================
@@ -105,13 +116,13 @@ endif
 # ==============================================================================
 LIBSDIR     := libs
 LIBS_OBJDIR := $(LIBSDIR)/obj
- 
+
 # Auto-discover all lib subdirectories (excluding obj/)
-LIB_SUBDIRS  := $(shell find $(LIBSDIR) -mindepth 1 -maxdepth 1 -type d ! -name obj)
-LIB_INCLUDES := $(addprefix -I,$(LIB_SUBDIRS))
- 
+LIB_SUBDIRS   := $(shell find $(LIBSDIR) -mindepth 1 -maxdepth 1 -type d ! -name obj)
+LIB_INCLUDES  := $(addprefix -I,$(LIB_SUBDIRS))
+
 # Split libs into cmake-based and generic (plain source)
-CMAKE_LIB_DIRS  := $(foreach dir,$(LIB_SUBDIRS),$(if $(wildcard $(dir)/CMakeLists.txt),$(dir)))
+CMAKE_LIB_DIRS   := $(foreach dir,$(LIB_SUBDIRS),$(if $(wildcard $(dir)/CMakeLists.txt),$(dir)))
 GENERIC_LIB_DIRS := $(filter-out $(CMAKE_LIB_DIRS),$(LIB_SUBDIRS))
 
 # ------------------------------------------------------------------------------
@@ -128,11 +139,11 @@ GENERIC_LIB_DIRS := $(filter-out $(CMAKE_LIB_DIRS),$(LIB_SUBDIRS))
 CMAKE_LIB_NAMES   := $(foreach dir,$(CMAKE_LIB_DIRS),$(notdir $(dir)))
 CMAKE_LIB_BUILDS  := $(foreach name,$(CMAKE_LIB_NAMES),$(LIBS_OBJDIR)/$(name))
 CMAKE_LIB_STAMPS  := $(foreach name,$(CMAKE_LIB_NAMES),$(LIBS_OBJDIR)/$(name)/.built)
- 
+
 # Collect all .a files from cmake builds (resolved after build via wildcard in link step)
 # We use a function to find them at link time since cmake chooses the name
 CMAKE_LIB_ARCHIVES = $(foreach name,$(CMAKE_LIB_NAMES),$(wildcard $(LIBS_OBJDIR)/$(name)/*.a))
- 
+
 # Build rule for each cmake lib: configure + build, then stamp
 $(LIBS_OBJDIR)/%/.built: $(LIBSDIR)/%/CMakeLists.txt
 	$(if $(SHOW_PROGRESS),@echo "[CMAKE] Configuring $*")
@@ -148,7 +159,7 @@ $(LIBS_OBJDIR)/%/.built: $(LIBSDIR)/%/CMakeLists.txt
 	$(Q)cmake --build $(LIBS_OBJDIR)/$* --config Release $(CMAKE_QUIET)
 	@touch $@
 	$(if $(SHOW_PROGRESS),@echo "[CMAKE] $* built -> $(LIBS_OBJDIR)/$*/")
- 
+
 # Phony target so "make libs" can depend on all cmake stamps
 .PHONY: cmake-libs
 cmake-libs: $(CMAKE_LIB_STAMPS)
@@ -195,19 +206,19 @@ CFLAGS   := -O2 -MMD -MP $(INCLUDES) $(LIB_INCLUDES)
 # ==============================================================================
 # Compilation Rules
 # ==============================================================================
- 
+
 # ----- Generic bundled libs: C -----
 $(LIBS_OBJDIR)/%.o: $(LIBSDIR)/%.c
 	@mkdir -p $(dir $@)
 	$(if $(SHOW_PROGRESS),@echo "[CC]  $<")
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
- 
+
 # ----- Generic bundled libs: C++ -----
 $(LIBS_OBJDIR)/%.o: $(LIBSDIR)/%.$(CXX_EXT)
 	@mkdir -p $(dir $@)
 	$(if $(SHOW_PROGRESS),@echo "[CXX] $< (lib)")
 	$(Q)$(CXX) $(CXXFLAGS) -c $< -o $@
- 
+
 # ----- Project C++ objects -----
 $(OBJDIR)/%.o: %.$(CXX_EXT)
 	@mkdir -p $(dir $@)
@@ -218,75 +229,75 @@ $(OBJDIR)/%.o: %.$(CXX_EXT)
 # Build Targets
 # ==============================================================================
 .PHONY: libs core client server test
- 
+
 libs: cmake-libs $(LIB_OTHER_ALL_OBJS)
 	$(if $(SHOW_PROGRESS),@echo "[makefile] Bundled libraries built")
- 
+
 core: libs $(CORE_OBJS)
 	$(if $(SHOW_PROGRESS),@echo "[makefile] Core built")
- 
+
 client: $(BINDIR)/$(CLIENT_TARGET)
- 
+
 server: $(BINDIR)/$(SERVER_TARGET)
- 
+
 test: $(BINDIR)/$(TEST_TARGET)
- 
+
 # ----- Executables -----
 $(BINDIR)/$(CLIENT_TARGET): libs $(CLIENT_OBJS) $(CORE_OBJS)
 	@mkdir -p $(BINDIR)
 	$(if $(SHOW_PROGRESS),@echo "[LINK] $(BINDIR)/$(CLIENT_TARGET)")
 	$(Q)$(CXX) $(CLIENT_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
 	$(if $(SHOW_PROGRESS),@echo "[makefile] Built $(BINDIR)/$(CLIENT_TARGET)")
- 
+
 $(BINDIR)/$(SERVER_TARGET): libs $(SERVER_OBJS) $(CORE_OBJS)
 	@mkdir -p $(BINDIR)
 	$(if $(SHOW_PROGRESS),@echo "[LINK] $(BINDIR)/$(SERVER_TARGET)")
 	$(Q)$(CXX) $(SERVER_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
 	$(if $(SHOW_PROGRESS),@echo "[makefile] Built $(BINDIR)/$(SERVER_TARGET)")
- 
+
 $(BINDIR)/$(TEST_TARGET): libs $(TEST_OBJS) $(CLIENT_LIB_OBJS) $(CORE_OBJS)
 	@mkdir -p $(BINDIR)
 	$(if $(SHOW_PROGRESS),@echo "[LINK] $(BINDIR)/$(TEST_TARGET)")
 	$(Q)$(CXX) $(TEST_OBJS) $(CLIENT_LIB_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
 	$(if $(SHOW_PROGRESS),@echo "[makefile] Built $(BINDIR)/$(TEST_TARGET)")
- 
+
 # ----- Run Targets -----
 .PHONY: run-client run-server run-test
- 
+
 run-client: client
 	@echo "[makefile] Running $(BINDIR)/$(CLIENT_TARGET)"
 	@./$(BINDIR)/$(CLIENT_TARGET)
- 
+
 run-server: server
 	@echo "[makefile] Running $(BINDIR)/$(SERVER_TARGET)"
 	@./$(BINDIR)/$(SERVER_TARGET)
- 
+
 FILTER ?=
 
 run-test: test
 	@echo "[makefile] Running $(BINDIR)/$(TEST_TARGET)$(if $(FILTER), [filter: $(FILTER)],)"
 	@"./$(BINDIR)/$(TEST_TARGET)" $(if $(FILTER),"$(FILTER)",)
- 
+
 # ----- Cleanup Targets -----
 .PHONY: clean clean-logs clean-all
- 
+
 clean:
 	@echo "[makefile] Removing $(OBJDIR)/ and $(BINDIR)/"
 	@rm -rf $(OBJDIR) $(BINDIR)
- 
+
 clean-logs:
 	@echo "[makefile] Removing log files"
 	@rm -f *.log
- 
+
 clean-all:
 	@$(MAKE) clean
 	@echo "[makefile] Removing $(LIBS_OBJDIR)/"
 	@rm -rf $(LIBS_OBJDIR)
 	@$(MAKE) clean-logs
- 
+
 # ----- Help -----
 .PHONY: help
- 
+
 help:
 	@echo "Usage: make <target>"
 	@echo ""
@@ -313,9 +324,6 @@ help:
 	@echo "Bundled libraries:"
 	@echo "  cmake: $(if $(CMAKE_LIB_NAMES),$(CMAKE_LIB_NAMES),(none))"
 	@echo "  generic: $(if $(GENERIC_LIB_DIRS),$(notdir $(GENERIC_LIB_DIRS)),(none))"
- 
+
 # ----- Include dependencies if present -----
 -include $(CORE_DEPS) $(CLIENT_DEPS) $(SERVER_DEPS) $(TEST_DEPS) $(LIB_OTHER_ALL_DEPS)
-
-
-
