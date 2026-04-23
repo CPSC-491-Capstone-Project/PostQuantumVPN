@@ -46,6 +46,48 @@ The project was designed in CPSC 490 and is being implemented in CPSC 491. Below
 - Handshake helper functions: MixHash, MixKey, KDF1/2/3, EncryptAndHash, DecryptAndHash
 - TAI64N timestamps for handshake replay protection
 
+## Key Setup
+
+PostQuantumVPN uses a hybrid keypair: **X25519** (classical) + **ML-KEM-768** (post-quantum). Each peer (server or client) has its own static keypair that is generated once and persisted.
+
+### Server
+
+On first run the server generates `server_keys.conf` in the working directory and prints the public keys to stdout:
+
+```
+=== Public Keys (share these with peers) ===
+x25519_public = <64 hex chars>
+mlkem_ek = <2368 hex chars>
+=============================================
+```
+
+On every subsequent run the server reads keys from `server_keys.conf` instead of generating new ones.
+
+> **Keep `server_keys.conf` private.** The `x25519_private` and `mlkem_dk` fields inside are secret keys. Only `x25519_public` and `mlkem_ek` should be shared with clients.
+
+### Client (when implemented)
+
+The client will need a `client_keys.conf` for its own keypair (same format as the server), plus the server's public keys in its config:
+
+```
+server_x25519_public = <value from server's server_keys.conf>
+server_mlkem_ek = <value from server's server_keys.conf>
+server_ip = <your public IP>
+server_port = 51820
+```
+
+### Config file format
+
+```ini
+# PostQuantumVPN Keys
+x25519_private = <64 hex chars>   # 32-byte private key  (keep secret)
+x25519_public  = <64 hex chars>   # 32-byte public key   (share with peers)
+mlkem_dk       = <4800 hex chars> # 2400-byte decapsulation key (keep secret)
+mlkem_ek       = <2368 hex chars> # 1184-byte encapsulation key (share with peers)
+```
+
+---
+
 ## Building the Project
 
 ```bash

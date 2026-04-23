@@ -9,7 +9,7 @@ WARN := -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion #-Werror
 STD := -std=c++23
 OPT := -O2
 DEP := -MMD -MP
-INCLUDES := -Iclient -Iserver -Itests -Icore -Icore/os/$(PLATFORM) -Icore/cryptography -Icore/utils -Icore/network -Icore/handshake -Icore/session
+INCLUDES := -Iclient -Iserver -Itests -Icore -Icore/os/$(PLATFORM) -Icore/cryptography -Icore/utils -Icore/network -Icore/handshake -Icore/session -Icore/config
 
 # ----- Verbosity -----
 # V=low (errors only), V=medium (default, file-level), V=high (everything)
@@ -154,7 +154,7 @@ OBJDIR := obj
 BINDIR := bin
 
 # ----- Source & Dependencies -----
-CORE_SRCS   := $(wildcard core/*.$(CXX_EXT)) $(wildcard core/os/$(PLATFORM)/*.$(CXX_EXT)) $(wildcard core/cryptography/*.$(CXX_EXT)) $(wildcard core/utils/*.$(CXX_EXT)) $(wildcard core/network/*.$(CXX_EXT)) $(wildcard core/handshake/*.$(CXX_EXT)) $(wildcard core/session/*.$(CXX_EXT))
+CORE_SRCS   := $(wildcard core/*.$(CXX_EXT)) $(wildcard core/os/$(PLATFORM)/*.$(CXX_EXT)) $(wildcard core/cryptography/*.$(CXX_EXT)) $(wildcard core/utils/*.$(CXX_EXT)) $(wildcard core/network/*.$(CXX_EXT)) $(wildcard core/handshake/*.$(CXX_EXT)) $(wildcard core/session/*.$(CXX_EXT)) $(wildcard core/config/*.$(CXX_EXT))
 CLIENT_SRCS := $(wildcard client/*.$(CXX_EXT))
 SERVER_SRCS := $(wildcard server/*.$(CXX_EXT))
 TEST_SRCS   := $(wildcard tests/*.$(CXX_EXT))
