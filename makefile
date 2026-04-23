@@ -67,12 +67,19 @@ else ifeq ($(PLATFORM),linux)
 		LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include
 		LDFLAGS := -L$(OPENSSL_PREFIX)/lib64 -lssl -lcrypto -Wl,-rpath,$(OPENSSL_PREFIX)/lib64
 	else
-		OPENSSL_CHECK := $(shell pkg-config --exists openssl 2>/dev/null && echo yes || echo no)
-		ifeq ($(OPENSSL_CHECK),yes)
+		OPENSSL_VERSION := $(shell pkg-config --modversion openssl 2>/dev/null)
+
+		OPENSSL_OK := $(shell \
+		v=$(OPENSSL_VERSION); \
+		major=$$(echo $$v | cut -d. -f1); \
+		minor=$$(echo $$v | cut -d. -f2); \
+		if [ $$major -gt 3 ] || [ $$major -eq 3 -a $$minor -ge 5 ]; then echo yes; else echo no; fi)
+
+		ifeq ($(OPENSSL_OK),yes)
 			LIB_CFLAGS := $(shell pkg-config --cflags openssl)
 			LDFLAGS := $(shell pkg-config --libs openssl)
 		else
-			OPENSSL_FOUND := no
+			$(error OpenSSL >= 3.5 required, found $(OPENSSL_VERSION))
 		endif
 	endif
 else ifeq ($(PLATFORM),windows)
