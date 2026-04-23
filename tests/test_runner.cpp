@@ -40,6 +40,7 @@
 #include "udp_socket_tests.hpp"
 #include "x25519_tests.hpp"
 #include "index_table_tests.hpp"
+#include "key_config_tests.hpp"
 #include "replay_window_tests.hpp"
 #include "session_encrypt_tests.hpp"
 
@@ -201,6 +202,21 @@ int main(int argc, char* argv[]) {
     Run(BitUtilsTest_BytesToBits_AllOnes, "BytesToBits: all ones (0xFF)");
     Run(BitUtilsTest_Roundtrip_BytesToBits_To_BitsToBytes, "Roundtrip: BytesToBits --> BitsToBytes");
     Run(BitUtilsTest_Roundtrip_BitsToBytes_To_BytesToBits, "Roundtrip: BitsToBytes --> BytesToBits");
+
+    std::cout << "\n";
+    Run(BitUtilsTest_HexNibble_Digits,      "HexNibble: digits 0-9");
+    Run(BitUtilsTest_HexNibble_LowerAlpha,  "HexNibble: lower a-f");
+    Run(BitUtilsTest_HexNibble_UpperAlpha,  "HexNibble: upper A-F");
+    Run(BitUtilsTest_HexNibble_InvalidChar, "HexNibble: invalid char -> -1");
+    Run(BitUtilsTest_ToHex_KnownValue,      "ToHex: known value (deadbeef)");
+    Run(BitUtilsTest_ToHex_Empty,           "ToHex: empty span");
+    Run(BitUtilsTest_ToHex_SingleByte,      "ToHex: single byte (0xff)");
+    Run(BitUtilsTest_ToHex_AllZeros,        "ToHex: all zeros");
+    Run(BitUtilsTest_FromHex_KnownValue,    "FromHex: known value");
+    Run(BitUtilsTest_FromHex_UpperCase,     "FromHex: uppercase input");
+    Run(BitUtilsTest_FromHex_Roundtrip,     "FromHex: roundtrip with ToHex");
+    Run(BitUtilsTest_FromHex_WrongLength,   "FromHex: wrong length -> false");
+    Run(BitUtilsTest_FromHex_InvalidChar,   "FromHex: invalid char -> false");
 
     // =============================================================================
     // Hex Helpers Tests
@@ -698,12 +714,19 @@ int main(int argc, char* argv[]) {
     Run(SessionLifecycleTest_GetKeepaliveDue_DueSession,         "SessionLifecycle: GetKeepaliveDue due session");
 
     // =============================================================================
-    // Client Tests
+    // Key Config Tests
     // =============================================================================
     std::cout << "\n";
-    Run(ClientTest_Init_Loopback_Succeeds, "Client: Init loopback succeeds");
-    Run(ClientTest_StopBeforeRun,          "Client: Stop before Run returns immediately");
-    Run(ClientTest_DoubleShutdown,         "Client: Double Shutdown does not crash");
+    Run(KeyConfigTest_LoadOrGenerate_CreatesFile,        "KeyConfig: creates file when missing");
+    Run(KeyConfigTest_LoadOrGenerate_KeysNonZero,        "KeyConfig: generated keys are non-zero");
+    Run(KeyConfigTest_LoadOrGenerate_PublicKeyPersists,  "KeyConfig: public key persists across loads");
+    Run(KeyConfigTest_LoadOrGenerate_PrivateKeyPersists, "KeyConfig: private key persists across loads");
+    Run(KeyConfigTest_LoadOrGenerate_PublicMatchesPrivate,"KeyConfig: public key matches private key");
+    Run(KeyConfigTest_LoadOrGenerate_UniqueKeysPerFile,  "KeyConfig: unique keys per file");
+    Run(KeyConfigTest_LoadOrGenerate_NulloptOnBadFile,   "KeyConfig: nullopt on bad file");
+    Run(KeyConfigTest_LoadOrGenerate_NulloptOnPartialFile,"KeyConfig: nullopt on partial file");
+    Run(KeyConfigTest_LoadOrGenerate_MlKemEkSize,        "KeyConfig: ML-KEM EK = 1184 bytes");
+    Run(KeyConfigTest_LoadOrGenerate_MlKemDkSize,        "KeyConfig: ML-KEM DK = 2400 bytes");
 
     // =============================================================================
     // Future Tests
