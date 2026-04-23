@@ -450,9 +450,16 @@ void Server::TimerTick() {
         s->last_sent_time = std::chrono::steady_clock::now();
     }
 
-    // Expire old sessions
+    // Expire old sessions and prune stale routing entries
     if (const std::size_t n = sessions_.SweepExpired(); n > 0) {
         Logger::Info("Server: Swept " + std::to_string(n) + " expired sessions");
+        std::lock_guard lock(routing_mutex_);
+        for (auto it = ip_to_session_.begin(); it != ip_to_session_.end(); ) {
+            if (!sessions_.Lookup(it->second))
+                it = ip_to_session_.erase(it);
+            else
+                ++it;
+        }
     }
 }
 
