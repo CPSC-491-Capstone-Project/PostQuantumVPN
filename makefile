@@ -2,7 +2,7 @@
 CLIENT_TARGET := PQ_VPN_Client
 SERVER_TARGET := PQ_VPN_Server
 TEST_TARGET := test_runner
-CXX := g++
+CXX := g++-12
 CC  := gcc
 #CXX := clang++
 WARN := -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion #-Werror
@@ -159,10 +159,15 @@ CLIENT_SRCS := $(wildcard client/*.$(CXX_EXT))
 SERVER_SRCS := $(wildcard server/*.$(CXX_EXT))
 TEST_SRCS   := $(wildcard tests/*.$(CXX_EXT))
 
-CORE_OBJS   := $(patsubst %.$(CXX_EXT),$(OBJDIR)/%.o,$(CORE_SRCS))
-CLIENT_OBJS := $(patsubst %.$(CXX_EXT),$(OBJDIR)/%.o,$(CLIENT_SRCS))
-SERVER_OBJS := $(patsubst %.$(CXX_EXT),$(OBJDIR)/%.o,$(SERVER_SRCS))
-TEST_OBJS   := $(patsubst %.$(CXX_EXT),$(OBJDIR)/%.o,$(TEST_SRCS))
+# Client library sources (no main.cpp) — linked into the test binary so
+# client_tests.hpp can exercise the Client class.
+CLIENT_LIB_SRCS := $(filter-out client/main.cpp,$(CLIENT_SRCS))
+
+CORE_OBJS        := $(patsubst %.$(CXX_EXT),$(OBJDIR)/%.o,$(CORE_SRCS))
+CLIENT_OBJS      := $(patsubst %.$(CXX_EXT),$(OBJDIR)/%.o,$(CLIENT_SRCS))
+CLIENT_LIB_OBJS  := $(patsubst %.$(CXX_EXT),$(OBJDIR)/%.o,$(CLIENT_LIB_SRCS))
+SERVER_OBJS      := $(patsubst %.$(CXX_EXT),$(OBJDIR)/%.o,$(SERVER_SRCS))
+TEST_OBJS        := $(patsubst %.$(CXX_EXT),$(OBJDIR)/%.o,$(TEST_SRCS))
 
 CORE_DEPS   := $(CORE_OBJS:.o=.d)
 CLIENT_DEPS := $(CLIENT_OBJS:.o=.d)
@@ -225,10 +230,10 @@ $(BINDIR)/$(SERVER_TARGET): libs $(SERVER_OBJS) $(CORE_OBJS)
 	$(Q)$(CXX) $(SERVER_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
 	$(if $(SHOW_PROGRESS),@echo "[makefile] Built $(BINDIR)/$(SERVER_TARGET)")
  
-$(BINDIR)/$(TEST_TARGET): libs $(TEST_OBJS) $(CORE_OBJS)
+$(BINDIR)/$(TEST_TARGET): libs $(TEST_OBJS) $(CLIENT_LIB_OBJS) $(CORE_OBJS)
 	@mkdir -p $(BINDIR)
 	$(if $(SHOW_PROGRESS),@echo "[LINK] $(BINDIR)/$(TEST_TARGET)")
-	$(Q)$(CXX) $(TEST_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
+	$(Q)$(CXX) $(TEST_OBJS) $(CLIENT_LIB_OBJS) $(CORE_OBJS) $(LIB_OTHER_ALL_OBJS) $(CMAKE_LIB_ARCHIVES) -o $@ $(LDFLAGS)
 	$(if $(SHOW_PROGRESS),@echo "[makefile] Built $(BINDIR)/$(TEST_TARGET)")
  
 # ----- Run Targets -----

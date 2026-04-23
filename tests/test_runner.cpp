@@ -17,6 +17,7 @@
 // --- Test module headers (alphabetical) ---
 #include "bit_utils_tests.hpp"
 #include "blake3_tests.hpp"
+#include "client_tests.hpp"
 #include "chacha20_poly1305_tests.hpp"
 #include "event_poller_tests.hpp"
 #include "derive_session_keys_tests.hpp"

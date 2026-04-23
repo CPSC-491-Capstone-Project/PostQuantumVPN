@@ -5,6 +5,7 @@
 #include "udp_socket.hpp"
 #include "random.hpp"
 
+#include <algorithm>
 #include <tuple>
 #include <cstring>
 
