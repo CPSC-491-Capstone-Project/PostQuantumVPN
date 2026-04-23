@@ -1,9 +1,16 @@
+# Project
 obj/
 bin/
 tests/obj/
 tests/bin/
 *.log
 .history/
+
+# Application Keys
+client_keys.conf
+server_keys.conf
+server_pub.conf
+
 
 # CMake & Clion
 CMakeCache.txt
