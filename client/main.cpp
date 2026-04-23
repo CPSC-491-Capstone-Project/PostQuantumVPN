@@ -66,7 +66,12 @@ static bool LoadServerPublicKeys(
 }
 
 int main(int argc, char* argv[]) {
-    (void)argc; (void)argv;
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <server_ip> [port]\n";
+        return 1;
+    }
+    std::string server_ip   = argv[1];
+    std::uint16_t server_port = (argc >= 3) ? static_cast<std::uint16_t>(std::stoi(argv[2])) : 51820;
 
     Logger::getInstance().init(std::cerr).setLogLevel(core::utils::LogLevel::DEBUG);
 
@@ -104,7 +109,7 @@ int main(int argc, char* argv[]) {
           .SetServerStaticKeys(server_x25519_pub, server_mlkem_ek)
           .SetTunInterface("tun0");
 
-    if (!client.Init("192.168.0.169", 51820)) {
+    if (!client.Init(server_ip, server_port)) {
         Logger::Error("main: Client initialization failed");
         return 1;
     }

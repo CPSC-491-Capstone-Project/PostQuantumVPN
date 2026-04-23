@@ -301,7 +301,7 @@ $(BINDIR)/$(TEST_TARGET): libs $(TEST_OBJS) $(CLIENT_LIB_OBJS) $(CORE_OBJS)
 
 run-client: client
 	@echo "[makefile] Running $(BINDIR)/$(CLIENT_TARGET)"
-	@./$(BINDIR)/$(CLIENT_TARGET)
+	@./$(BINDIR)/$(CLIENT_TARGET) $(SERVER_IP) $(SERVER_PORT)
 
 run-server: server
 	@echo "[makefile] Running $(BINDIR)/$(SERVER_TARGET)"
