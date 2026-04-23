@@ -29,7 +29,7 @@ struct HandshakeState {
     // Ephemeral keys for this handshake session
     std::array<std::uint8_t, 32>   local_ephemeral_x25519_private{};
     std::array<std::uint8_t, 32>   local_ephemeral_x25519_public{};
-    std::array<std::uint8_t, 2400> local_ephemeral_mlkem_dk{};
+    std::array<std::uint8_t, kMlKemDecapsulationKeyBytes> local_ephemeral_mlkem_dk{};
     std::array<std::uint8_t, 1184> local_ephemeral_mlkem_ek{};
 
     // Peer keys from configuration

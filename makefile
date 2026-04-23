@@ -61,12 +61,19 @@ ifeq ($(PLATFORM),macos)
 		OPENSSL_FOUND := no
 	endif
 else ifeq ($(PLATFORM),linux)
-	OPENSSL_CHECK := $(shell pkg-config --exists openssl 2>/dev/null && echo yes || echo no)
-	ifeq ($(OPENSSL_CHECK),yes)
-		LIB_CFLAGS := $(shell pkg-config --cflags openssl)
-		LDFLAGS := $(shell pkg-config --libs openssl)
+	# If OPENSSL_PREFIX is set (e.g. /usr/local/openssl-3.5), use it directly.
+	# Otherwise fall back to pkg-config.
+	ifdef OPENSSL_PREFIX
+		LIB_CFLAGS := -I$(OPENSSL_PREFIX)/include
+		LDFLAGS := -L$(OPENSSL_PREFIX)/lib64 -lssl -lcrypto -Wl,-rpath,$(OPENSSL_PREFIX)/lib64
 	else
-		OPENSSL_FOUND := no
+		OPENSSL_CHECK := $(shell pkg-config --exists openssl 2>/dev/null && echo yes || echo no)
+		ifeq ($(OPENSSL_CHECK),yes)
+			LIB_CFLAGS := $(shell pkg-config --cflags openssl)
+			LDFLAGS := $(shell pkg-config --libs openssl)
+		else
+			OPENSSL_FOUND := no
+		endif
 	endif
 else ifeq ($(PLATFORM),windows)
 	OPENSSL_CHECK := $(shell where openssl >nul 2>&1 && echo yes || echo no)

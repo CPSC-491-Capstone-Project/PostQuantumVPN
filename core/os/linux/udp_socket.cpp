@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <cerrno>
 #include <cstring>
 #include <utility>
 
@@ -122,7 +123,8 @@ namespace core::network {
         );
 
         if (sent < 0) {
-            Logger::Error("UDPSocket:: sendto failed for socket: " + std::to_string(handle_));
+            Logger::Error("UDPSocket:: sendto failed for socket " + std::to_string(handle_)
+                          + ": " + std::strerror(errno));
         }
 
         return sent;

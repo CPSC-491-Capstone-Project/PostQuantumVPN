@@ -16,15 +16,14 @@
 
 namespace core::handshake {
 
-inline constexpr std::size_t kMlKemDecapsulationKeyBytes = 2400;
-inline constexpr std::size_t kMlKemEncapsulationKeyBytes = 1184;
+// kMlKemDecapsulationKeyBytes / kMlKemEncapsulationKeyBytes defined in handshake_constants.hpp
 
 struct Peer {
 
     // Local static identity
     core::cryptography::x25519::PrivateKey local_static_x25519_private{};
     core::cryptography::x25519::PublicKey  local_static_x25519_public{};
-    std::array<std::uint8_t, kMlKemDecapsulationKeyBytes> local_static_mlkem_dk{};
+    std::array<std::uint8_t, kMlKemDecapsulationKeyBytes>  local_static_mlkem_dk{};
     std::array<std::uint8_t, kMlKemEncapsulationKeyBytes> local_static_mlkem_ek{};
 
     // Remote static keys (from config)

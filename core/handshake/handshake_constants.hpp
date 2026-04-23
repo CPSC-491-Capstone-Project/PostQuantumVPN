@@ -67,6 +67,13 @@ inline constexpr std::uint64_t kRekeyAfterMessages = std::uint64_t{1} << 60;
 inline constexpr std::uint64_t kRejectAfterMessages = UINT64_MAX - (std::uint64_t{1} << 13);
  
 // ---------------------------------------------------------------------------
+// ML-KEM key size constants
+// ---------------------------------------------------------------------------
+
+inline constexpr std::size_t kMlKemDecapsulationKeyBytes = 2400; // dk (ML-KEM-768)
+inline constexpr std::size_t kMlKemEncapsulationKeyBytes = 1184; // ek (ML-KEM-768)
+
+// ---------------------------------------------------------------------------
 // MAC label strings
 // ---------------------------------------------------------------------------
  
