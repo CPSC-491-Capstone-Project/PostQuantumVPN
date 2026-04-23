@@ -51,43 +51,72 @@ else
 endif
 
 # ----- Lib Detections -----
-OPENSSL_FOUND := yes
-LIB_CFLAGS :=
-LDFLAGS :=
+LIB_CFLAGS      :=
+LDFLAGS         :=
+OPENSSL_FOUND   := yes
+OPENSSL_VERSION :=
+
+# Extract "X.Y.Z" from the OpenSSL header (no binary execution needed — works under sudo).
+get_openssl_bin_version = $(shell grep 'OPENSSL_VERSION_STR' $(1)/include/openssl/opensslv.h 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+
+# Return "yes" if "X.Y[.Z]" satisfies >= 3.5, "no" otherwise.
+check_openssl_version = $(shell \
+  v="$(1)"; \
+  major=$$(printf '%s' "$$v" | cut -d. -f1); \
+  minor=$$(printf '%s' "$$v" | cut -d. -f2); \
+  if [ -n "$$major" ] && [ -n "$$minor" ] && \
+     { [ "$$major" -gt 3 ] 2>/dev/null || \
+       { [ "$$major" -eq 3 ] 2>/dev/null && [ "$$minor" -ge 5 ] 2>/dev/null; }; }; then \
+    echo yes; \
+  else echo no; fi)
 
 ifeq ($(PLATFORM),macos)
-  OPENSSL_PREFIX ?= $(shell brew --prefix openssl 2>/dev/null)
+  # Prefer the versioned formula so we get 3.5 explicitly.
+  OPENSSL_PREFIX ?= $(or $(shell brew --prefix openssl@3.5 2>/dev/null),$(shell brew --prefix openssl 2>/dev/null))
   ifneq ($(strip $(OPENSSL_PREFIX)),)
-    LIB_CFLAGS += -I$(OPENSSL_PREFIX)/include
-    LDFLAGS += -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto
+    OPENSSL_VERSION := $(call get_openssl_bin_version,$(OPENSSL_PREFIX))
+    ifeq ($(call check_openssl_version,$(OPENSSL_VERSION)),yes)
+      LIB_CFLAGS += -I$(OPENSSL_PREFIX)/include
+      LDFLAGS    += -L$(OPENSSL_PREFIX)/lib -lssl -lcrypto
+    else
+      OPENSSL_FOUND := no
+    endif
   else
     OPENSSL_FOUND := no
   endif
 
 else ifeq ($(PLATFORM),linux)
-  # If OPENSSL_PREFIX is set (e.g. /usr/local/openssl-3.5), use it directly.
-  # Otherwise fall back to pkg-config.
   ifneq ($(strip $(OPENSSL_PREFIX)),)
-    LIB_CFLAGS += -I$(OPENSSL_PREFIX)/include
-    ifneq ($(wildcard $(OPENSSL_PREFIX)/lib64),)
-      LDFLAGS += -L$(OPENSSL_PREFIX)/lib64 -Wl,-rpath,$(OPENSSL_PREFIX)/lib64
+    # User-specified prefix: verify the version then use it.
+    OPENSSL_VERSION := $(call get_openssl_bin_version,$(OPENSSL_PREFIX))
+    ifeq ($(call check_openssl_version,$(OPENSSL_VERSION)),yes)
+      LIB_CFLAGS += -I$(OPENSSL_PREFIX)/include
+      ifneq ($(wildcard $(OPENSSL_PREFIX)/lib64),)
+        LDFLAGS += -L$(OPENSSL_PREFIX)/lib64 -Wl,-rpath,$(OPENSSL_PREFIX)/lib64
+      else
+        LDFLAGS += -L$(OPENSSL_PREFIX)/lib -Wl,-rpath,$(OPENSSL_PREFIX)/lib
+      endif
+      LDFLAGS += -lssl -lcrypto
     else
-      LDFLAGS += -L$(OPENSSL_PREFIX)/lib -Wl,-rpath,$(OPENSSL_PREFIX)/lib
+      OPENSSL_FOUND := no
     endif
-    LDFLAGS += -lssl -lcrypto
   else
+    # No prefix set: try pkg-config, then auto-detect /usr/local/openssl-3.5.
     OPENSSL_VERSION := $(shell pkg-config --modversion openssl 2>/dev/null)
-
-    ifneq ($(strip $(OPENSSL_VERSION)),)
-      OPENSSL_OK := $(shell \
-        v="$(OPENSSL_VERSION)"; \
-        major=$$(echo $$v | cut -d. -f1); \
-        minor=$$(echo $$v | cut -d. -f2); \
-        if [ $$major -gt 3 ] || { [ $$major -eq 3 ] && [ $$minor -ge 5 ]; }; then echo yes; else echo no; fi)
-
-      ifeq ($(OPENSSL_OK),yes)
-        LIB_CFLAGS += $(shell pkg-config --cflags openssl)
-        LDFLAGS += $(shell pkg-config --libs openssl)
+    ifeq ($(call check_openssl_version,$(OPENSSL_VERSION)),yes)
+      LIB_CFLAGS += $(shell pkg-config --cflags openssl)
+      LDFLAGS    += $(shell pkg-config --libs openssl)
+    else ifneq ($(wildcard /usr/local/openssl-3.5/bin/openssl),)
+      OPENSSL_PREFIX  := /usr/local/openssl-3.5
+      OPENSSL_VERSION := $(call get_openssl_bin_version,$(OPENSSL_PREFIX))
+      ifeq ($(call check_openssl_version,$(OPENSSL_VERSION)),yes)
+        LIB_CFLAGS += -I$(OPENSSL_PREFIX)/include
+        ifneq ($(wildcard $(OPENSSL_PREFIX)/lib64),)
+          LDFLAGS += -L$(OPENSSL_PREFIX)/lib64 -Wl,-rpath,$(OPENSSL_PREFIX)/lib64
+        else
+          LDFLAGS += -L$(OPENSSL_PREFIX)/lib -Wl,-rpath,$(OPENSSL_PREFIX)/lib
+        endif
+        LDFLAGS += -lssl -lcrypto
       else
         OPENSSL_FOUND := no
       endif
@@ -97,26 +126,39 @@ else ifeq ($(PLATFORM),linux)
   endif
 
 else ifeq ($(PLATFORM),windows)
-  OPENSSL_CHECK := $(shell where openssl >nul 2>&1 && echo yes || echo no)
-  ifeq ($(OPENSSL_CHECK),yes)
-    LDFLAGS += -lssl -lcrypto -lws2_32
+  OPENSSL_VERSION := $(shell openssl version 2>/dev/null | awk '{print $$2}')
+  ifneq ($(strip $(OPENSSL_VERSION)),)
+    ifeq ($(call check_openssl_version,$(OPENSSL_VERSION)),yes)
+      LDFLAGS += -lssl -lcrypto -lws2_32
+    else
+      OPENSSL_FOUND := no
+    endif
   else
     OPENSSL_FOUND := no
   endif
 endif
 
 ifeq ($(OPENSSL_FOUND),no)
-$(info OpenSSL >= 3.5 REQUIRED.)
-$(info Found: $(if $(strip $(OPENSSL_VERSION)),$(OPENSSL_VERSION),not found).)
 $(info )
-$(info Fix:)
-$(info 1) Install OpenSSL 3.5+)
-$(info 2) Then either:)
-$(info    export OPENSSL_PREFIX=/usr/local/openssl-3.5)
-$(info    OR)
-$(info    export PKG_CONFIG_PATH=/usr/local/openssl-3.5/lib64/pkgconfig)
+$(info ERROR: OpenSSL 3.5 or later is required but was not found.)
 $(info )
-$(error OpenSSL is required to build this project)
+$(info   Required : OpenSSL >= 3.5)
+$(info   Found    : $(if $(strip $(OPENSSL_VERSION)),$(OPENSSL_VERSION),not found))
+$(info )
+$(info   Install OpenSSL 3.5 and point the build at it using one of:)
+$(info )
+$(info   Linux / macOS -- set a prefix:)
+$(info     export OPENSSL_PREFIX=/usr/local/openssl-3.5)
+$(info     make <target>)
+$(info )
+$(info   Linux -- update pkg-config search path:)
+$(info     export PKG_CONFIG_PATH=/usr/local/openssl-3.5/lib64/pkgconfig)
+$(info     make <target>)
+$(info )
+$(info   macOS -- install via Homebrew:)
+$(info     brew install openssl@3.5)
+$(info )
+$(error Build aborted: OpenSSL 3.5+ not found)
 endif
 
 # ==============================================================================
