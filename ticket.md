@@ -1,42 +1,73 @@
-This ticket turns the client event loop stub into a working plaintext tunnel endpoint. After this ticket, applications on the client machine have their traffic captured by the TUN device, forwarded in cleartext over UDP to the server, and responses are delivered back to the application. The application sees normal internet access, unaware it is being tunneled. No encryption — the goal is to prove the client-side network plumbing and routing work.
+The client currently forwards plaintext packets. This ticket adds the handshake initiator and encrypts all Transport traffic through the existing session module. After this ticket, the client can initiate a hybrid X25519 + ML-KEM-768 handshake, complete it upon receiving a Response, activate an encrypted session, and encrypt/decrypt all tunneled packets with ChaCha20-Poly1305.
 
-Assume the SessionManager is set up and a session entry exists for the server. Assume the TunDevice class already exists in core/network/ with Open, Read, Write, GetHandle, and Close methods.
+Assume the session module (Seal, Open, replay window, SessionManager, SerializeTransport, DeserializeTransport) is complete.
 
-Client network setup (run once at startup via a setup script, outside the Client class):
+Client key material:
 
-ip addr add 10.0.0.2/24 dev tun0
-ip link set tun0 up
-ip route add default via 10.0.0.2 dev tun0 table 100
-ip rule add not fwmark 51820 table 100
+The Client class must hold its own static X25519 key pair, its own static ML-KEM-768 key pair, the server's static X25519 public key (pre-shared, loaded from configuration), and a core::utils::Tai64n instance for generating timestamps. These are loaded or generated during Init().
 
-The fwmark routing rule is the critical piece for loop prevention. The VPN's own UDP socket is marked with SO_MARK = 51820 so its packets bypass the TUN and use the normal routing table. All other traffic — including DNS on port 53 — gets routed into the TUN by the policy rule.
+Replace the SendInitiation() stub:
 
-Modify the client event loop:
+Initialize chaining key and hash from InitialChainingKey() / InitialHash().
 
-Add a TunDevice member to the Client class. Open it during Init() and register its fd with the event poller alongside the UDP socket (both EventMask::Readable). Also during Init(), set SO_MARK = 51820 on the UDP socket via setsockopt.
+Walk the Noise IK initiator steps: MixHash the server's static X25519 public key, generate an ephemeral X25519 key pair, MixHash the ephemeral public key, DH(ephemeral_private, server_static_public), MixKey, EncryptAndHash the client's static X25519 public key.
 
-TUN is readable (application sends a packet): Read an IP packet from the TUN. Look up the active session (only one for now). Wrap the raw packet in a simple framing header: [type=0x04 (1 byte)] [receiver_index (4 bytes LE)] [length (2 bytes LE)] [raw IP packet]. Send via socket.SendTo(server_endpoint, framed). The SO_MARK ensures this outbound UDP packet uses the normal routing table and does not re-enter the TUN.
+DH(client_static_private, server_static_public), MixKey, EncryptAndHash a TAI64N timestamp.
 
-UDP is readable (response from server): Receive the datagram. Strip the framing header. Write the raw IP packet into the TUN via tun.Write(payload). The kernel delivers it to the application that originally made the request.
+ML-KEM-768 encapsulation against the server's ML-KEM public key, MixKey the shared secret.
 
-Routing and loop prevention — things to watch for:
+Serialize the Initiation: message type 0x01, sender index (locally generated uint32_t), ephemeral public key, encrypted static key, encrypted timestamp, ML-KEM ciphertext, MAC fields.
 
-If SO_MARK is not set on the UDP socket, the VPN's own packets enter the TUN and create an infinite loop. This is the #1 debugging issue.
+Send via socket.SendTo(server_endpoint, initiation).
 
-The ip rule must use not fwmark (not fwmark) — the logic is inverted from what you might expect.
+Store the in-progress handshake state (chaining key, hash, ephemeral private key) so HandleResponse can complete the handshake.
 
-DNS traffic must also enter the TUN. The default route in table 100 covers this.
+If any cryptographic operation returns std::nullopt, log at Error and abort the attempt. The loop continues running and can retry.
 
-If the server is on the same LAN, you may need a more specific route for the server's IP to bypass the TUN: ip route add <server_ip>/32 via <gateway> table main.
+Replace the HandleResponse() stub:
 
-Tests (manual — requires root and a running server or a mock UDP echo):
+Validate minimum message length.
 
-Start a UDP echo (or the real server), start the client, run ping 8.8.8.8 — ICMP packets traverse the tunnel and return.
+Deserialize: responder sender index, responder ephemeral public key, encrypted empty payload, MAC fields.
 
-curl http://example.com — HTTP response received.
+Verify MAC1.
 
-VPN's own UDP traffic does not enter the TUN (no routing loop).
+Resume the stored handshake state (chaining key, hash, ephemeral private key from SendInitiation). MixHash the responder's ephemeral public key.
 
-Kill the remote server — client stops receiving responses but does not crash.
+DH(client_ephemeral_private, responder_ephemeral), MixKey.
+
+DH(client_static_private, responder_ephemeral), MixKey.
+
+DecryptAndHash the encrypted empty payload — if this fails, the handshake is corrupted. Log and discard.
+
+Derive session keys via KDF2(C, empty) → (T0, T1). The client's send_key = T0 and recv_key = T1.
+
+Call session_manager.ActivateSession(secrets, server_endpoint). Log at Info on success.
+
+After this, the client has an active Session with traffic keys.
+
+Replace the plaintext forwarding with encrypted Transport:
+
+Outbound (TUN → UDP): Instead of wrapping in the simple framing header, call session->Seal(ip_packet) to encrypt, then SerializeTransport(receiver_index, counter, encrypted) to build the wire-format Transport message. Send via socket.SendTo(server_endpoint, transport_message).
+
+Inbound (UDP → TUN): Instead of stripping the simple framing header, call DeserializeTransport(data) to parse the Transport header. Look up the session via session_manager.FindByIndex(header.receiver_index). Call session->Open(header.counter, header.encrypted_payload) to decrypt. Discard on failure. On success, write the plaintext IP packet into the TUN.
+
+Keepalives and session expiry:
+
+In TimerTick(), call session_manager.GetKeepaliveDue(). For each, CreateKeepalive() → SerializeTransport → SendTo. Check session->IsExpired() and remove dead sessions. If the only session expires, re-initiate a handshake by calling SendInitiation() again.
+
+Rekey can be deferred — kRekeyAfterMessages (2^60) and kRekeyAfterTime (120 seconds) are generous enough for a demo. If time permits, trigger a new handshake when NeedsRekey() returns true.
+
+Tests:
+
+Call SendInitiation with known test keys, capture the UDP datagram, verify byte 0 is 0x01 and total length matches the expected Initiation size.
+
+Execute a full Initiation → Response → HandleResponse round-trip over loopback with known keys on both sides. Verify the client's send_key matches what the server would compute as its recv_key, and vice versa.
+
+Feed a Response with a corrupted encrypted payload — DecryptAndHash fails, handshake aborted.
+
+curl http://example.com through the tunnel — HTTP response received.
+
+tcpdump on the UDP port — payloads are encrypted, not readable cleartext.
 
 
