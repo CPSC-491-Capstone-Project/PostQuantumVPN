@@ -241,6 +241,7 @@ void Server::HandleTransport(ConstData data, const Endpoint& sender) {
     }
 
     if (!use_tun_ || !tun_.IsOpen()) return;
+    if (ip_len < 20) return;
 
     tun_.Write(ip_pkt);
     Logger::Debug("Server: TUN <- " + std::to_string(ip_len) + " bytes from " +

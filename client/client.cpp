@@ -6,9 +6,7 @@
 #include <vector>
 
 #ifndef _WIN32
-#include <netinet/in.h>
 #include <sys/socket.h>
-#include <unistd.h>
 #endif
 
 namespace client {
@@ -69,28 +67,6 @@ bool Client::Init(const std::string& server_ip, std::uint16_t server_port) {
         } else {
             Logger::Info("Client: SO_MARK = 51820 set on UDP socket");
         }
-    }
-#endif
-
-    // Raw socket used to inject decapsulated inbound IP packets back into the
-    // kernel via the OUTPUT path.  Packets destined for a local address (the
-    // VPN tunnel IP) are looped back through INPUT and delivered to the waiting
-    // application socket.  SO_MARK ensures non-local destinations use the main
-    // routing table instead of being caught by Rule B (→ tun0 loop).
-#ifndef _WIN32
-    inject_fd_ = ::socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
-    if (inject_fd_ < 0) {
-        Logger::Warning("Client: Failed to open raw inject socket — inbound injection unavailable");
-    } else {
-        int one = 1;
-        if (::setsockopt(inject_fd_, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one)) != 0)
-            Logger::Warning("Client: Failed to set IP_HDRINCL on inject socket");
-#ifdef SO_MARK
-        const std::uint32_t mark = 51820;
-        if (::setsockopt(inject_fd_, SOL_SOCKET, SO_MARK, &mark, sizeof(mark)) != 0)
-            Logger::Warning("Client: Failed to set SO_MARK on inject socket");
-#endif
-        Logger::Info("Client: Raw inject socket ready");
     }
 #endif
 
@@ -219,12 +195,6 @@ void Client::Shutdown() {
     if (use_tun_) tun_.Close();
     poller_.Close();
     socket_.Close();
-#ifndef _WIN32
-    if (inject_fd_ >= 0) {
-        ::close(inject_fd_);
-        inject_fd_ = -1;
-    }
-#endif
     initialized_ = false;
     stopped_      = false;
     use_tun_      = false;
@@ -281,29 +251,12 @@ void Client::HandleTransport(ConstData data, const Endpoint& sender) {
 
     ConstData ip_payload{data.data() + kHeaderSize, ip_len};
 
-#ifndef _WIN32
-    if (inject_fd_ >= 0 && ip_len >= 20) {
-        // Inject via raw socket — packet travels through OUTPUT/loopback path
-        // and is delivered to the waiting app socket via INPUT.  This reliably
-        // reaches the application regardless of policy routing rules on tun0.
-        struct sockaddr_in dst{};
-        dst.sin_family = AF_INET;
-        std::memcpy(&dst.sin_addr.s_addr, ip_payload.data() + 16, 4);
-        ::sendto(inject_fd_, ip_payload.data(), ip_len, 0,
-                 reinterpret_cast<const struct sockaddr*>(&dst), sizeof(dst));
-        Logger::Debug("Client: Injected " + std::to_string(ip_len) +
-                      " byte IP packet via raw socket");
-        return;
-    }
-#endif
-
     if (!use_tun_ || !tun_.IsOpen()) {
-        Logger::Warning("Client: HandleTransport — no inject socket and TUN not available");
+        Logger::Warning("Client: HandleTransport — TUN not available");
         return;
     }
     tun_.Write(ip_payload);
-    Logger::Debug("Client: Wrote " + std::to_string(ip_len) +
-                  " byte IP packet to TUN (fallback)");
+    Logger::Debug("Client: TUN <- " + std::to_string(ip_len) + " bytes");
 }
 
 // =========================================================================

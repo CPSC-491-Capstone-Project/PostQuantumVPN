@@ -57,7 +57,6 @@ private:
     UDPSocket   socket_{};
     EventPoller poller_{};
     TunDevice   tun_{};
-    int         inject_fd_{-1};  // raw socket for injecting decapsulated inbound IP packets
 
     std::array<std::uint8_t, 1500> recv_buffer_{};
     std::array<std::uint8_t, 1500> tun_buffer_{};
