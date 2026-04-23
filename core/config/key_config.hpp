@@ -25,6 +25,10 @@ struct KeyConfig {
 // Print x25519_public and mlkem_ek to stdout for pasting into a peer config.
 void PrintPublicKeys(const KeyConfig& keys);
 
+// Write x25519_public and mlkem_ek to a file for distribution to peers.
+// Returns false on I/O error.
+[[nodiscard]] bool SavePublicKeys(std::string_view path, const KeyConfig& keys);
+
 } // namespace core::config
 
 #endif // _PQVPN_CORE_CONFIG_KEY_CONFIG_HPP_

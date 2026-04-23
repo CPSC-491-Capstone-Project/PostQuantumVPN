@@ -1,8 +1,10 @@
 #include "server.hpp"
 #include "logger.hpp"
+#include "handshake_constants.hpp"
 
+#include <algorithm>
 #include <cstring>
-#include <vector>
+#include <string>
 
 #ifndef _WIN32
 #include <sys/socket.h>
@@ -11,6 +13,14 @@
 namespace server {
 
 using core::utils::Logger;
+using core::handshake::ConsumeMessageInitiation;
+using core::handshake::CreateMessageResponse;
+using core::handshake::DeriveSessionKeys;
+using core::handshake::DeserializeTransport;
+using core::handshake::SerializeTransport;
+using core::handshake::TransportDataMsg;
+using core::handshake::kInitiationSize;
+using core::session::SessionSecrets;
 
 // =========================================================================
 // Destructor
@@ -24,14 +34,27 @@ Server::~Server() {
 // Builder setters
 // =========================================================================
 
-Server& Server::SetBindAddress(IPv4 ip)  { bind_ip_ = ip;         return *this; }
-Server& Server::SetPort(Port port)       { port_    = port;        return *this; }
-Server& Server::SetPollTimeoutMs(int ms) { poll_timeout_ms_ = ms;  return *this; }
+Server& Server::SetBindAddress(IPv4 ip)          { bind_ip_ = ip;           return *this; }
+Server& Server::SetPort(Port port)               { port_    = port;         return *this; }
+Server& Server::SetPollTimeoutMs(int ms)         { poll_timeout_ms_ = ms;   return *this; }
 
 Server& Server::SetTunInterface(std::string_view ifname, IPv4 tun_ip) {
     tun_ifname_ = ifname;
     tun_ip_     = tun_ip;
     use_tun_    = true;
+    return *this;
+}
+
+Server& Server::SetStaticKeys(
+    const core::cryptography::x25519::PrivateKey&  x25519_priv,
+    const core::cryptography::x25519::PublicKey&   x25519_pub,
+    const std::array<std::uint8_t, 2400>&          mlkem_dk,
+    const std::array<std::uint8_t, 1184>&           mlkem_ek)
+{
+    local_x25519_priv_ = x25519_priv;
+    local_x25519_pub_  = x25519_pub;
+    local_mlkem_dk_    = mlkem_dk;
+    local_mlkem_ek_    = mlkem_ek;
     return *this;
 }
 
@@ -50,14 +73,20 @@ bool Server::Init() {
         return false;
     }
 
+    const bool keys_zero = std::all_of(local_x25519_priv_.begin(), local_x25519_priv_.end(),
+                                        [](std::uint8_t b){ return b == 0; });
+    if (keys_zero) {
+        Logger::Error("Server: Static keys not set — call SetStaticKeys before Init");
+        return false;
+    }
+
     // Socket
     if (!socket_.Open()) {
         Logger::Error("Server: Failed to open UDP socket");
         return false;
     }
     if (!socket_.Bind(bind_ip_, port_)) {
-        Logger::Error("Server: Failed to bind " + bind_ip_.ToString() + ":" +
-                      std::to_string(port_));
+        Logger::Error("Server: Failed to bind " + bind_ip_.ToString() + ":" + std::to_string(port_));
         CleanupResources();
         return false;
     }
@@ -99,8 +128,7 @@ bool Server::Init() {
             Logger::Warning("Server: Insufficient privileges for TUN — running without TUN");
             use_tun_ = false;
         } else if (!tun_.Open(tun_ifname_)) {
-            Logger::Warning("Server: Failed to open TUN device " + tun_ifname_ +
-                            " — running without TUN");
+            Logger::Warning("Server: Failed to open TUN device " + tun_ifname_ + " — running without TUN");
             use_tun_ = false;
         } else if (!tun_.BringUp(tun_ip_)) {
             Logger::Warning("Server: TUN BringUp failed — running without TUN");
@@ -113,14 +141,14 @@ bool Server::Init() {
                 CleanupResources();
                 return false;
             }
-            Logger::Info("Server: TUN interface " + tun_ifname_ + " at " +
-                         tun_ip_.ToString());
+            Logger::Info("Server: TUN interface " + tun_ifname_ + " at " + tun_ip_.ToString());
         }
     }
 
+    core::handshake::InitHandshakeConstants();
+
     initialized_ = true;
-    Logger::Info("Server: Initialized on " + bind_ip_.ToString() + ":" +
-                 std::to_string(port_));
+    Logger::Info("Server: Initialized on " + bind_ip_.ToString() + ":" + std::to_string(port_));
     return true;
 }
 
@@ -129,9 +157,9 @@ bool Server::Init() {
 // =========================================================================
 
 bool Server::Run() {
-    if (!initialized_)  { Logger::Error("Server: Run called before Init");   return false; }
-    if (stopped_)        { Logger::Warning("Server: Run called after Stop");  return false; }
-    if (running_.load()) { Logger::Warning("Server: Already running");        return false; }
+    if (!initialized_) { Logger::Error("Server: Run called before Init");       return false; }
+    if (stopped_)       { Logger::Warning("Server: Run called after Stop");      return false; }
+    if (running_.load()) { Logger::Warning("Server: Already running");           return false; }
 
     running_.store(true, std::memory_order_relaxed);
     worker_thread_ = std::thread(&Server::EventLoop, this);
@@ -188,12 +216,16 @@ void Server::EventLoop() {
                 ConstData payload{recv_buffer_.data(), result->bytes_read};
                 const auto type = static_cast<MessageType>(recv_buffer_[0]);
 
-                if (type == MessageType::Transport) {
-                    HandleTransport(payload, result->sender);
-                } else {
-                    Logger::Warning("Server: Ignoring non-Transport msg type " +
-                                    std::to_string(recv_buffer_[0]) + " from " +
-                                    FormatEndpoint(result->sender));
+                switch (type) {
+                    case MessageType::Initiation: HandleInitiation(payload, result->sender); break;
+                    case MessageType::Response:   HandleResponse(payload, result->sender);   break;
+                    case MessageType::Cookie:     HandleCookie(payload, result->sender);     break;
+                    case MessageType::Transport:  HandleTransport(payload, result->sender);  break;
+                    default:
+                        Logger::Warning("Server: Unknown msg type " +
+                                        std::to_string(recv_buffer_[0]) + " from " +
+                                        FormatEndpoint(result->sender));
+                        break;
                 }
             } else if (use_tun_ && tun_.IsOpen() && ev.handle == tun_.GetHandle()) {
                 HandleTunRead();
@@ -207,49 +239,142 @@ void Server::EventLoop() {
 }
 
 // =========================================================================
-// HandleTransport — strip 7-byte header, forward raw IP to TUN
-// Framing: [0x04 (1)] [receiver_index (4 LE)] [length (2 LE)] [raw IP]
+// HandleInitiation
 // =========================================================================
 
-void Server::HandleTransport(ConstData data, const Endpoint& sender) {
-    constexpr std::size_t kHeaderSize = 7;
-    if (data.size() < kHeaderSize) {
-        Logger::Warning("Server: Transport too short (" + std::to_string(data.size()) +
-                        " bytes) from " + FormatEndpoint(sender));
+void Server::HandleInitiation(ConstData data, const Endpoint& sender) {
+    Logger::Debug("Server: Initiation (" + std::to_string(data.size()) +
+                  " bytes) from " + FormatEndpoint(sender));
+
+    if (data.size() != kInitiationSize) {
+        Logger::Warning("Server: Initiation size mismatch: " + std::to_string(data.size()));
         return;
     }
 
-    const std::uint16_t ip_len =
-        static_cast<std::uint16_t>(data[5]) |
-        (static_cast<std::uint16_t>(data[6]) << 8);
+    // Fresh Peer with server's static keys; remote keys stay all-zeros → open-server mode
+    auto peer = std::make_unique<Peer>();
+    peer->local_static_x25519_private = local_x25519_priv_;
+    peer->local_static_x25519_public  = local_x25519_pub_;
+    peer->local_static_mlkem_dk       = local_mlkem_dk_;
+    peer->local_static_mlkem_ek       = local_mlkem_ek_;
+    peer->endpoint_ip                 = sender.ip;
+    peer->endpoint_port               = sender.port;
 
-    if (data.size() < kHeaderSize + ip_len) {
-        Logger::Warning("Server: Transport length field exceeds datagram from " +
-                        FormatEndpoint(sender));
+    if (!ConsumeMessageInitiation(data, *peer)) {
+        Logger::Warning("Server: ConsumeMessageInitiation failed from " + FormatEndpoint(sender));
         return;
     }
 
-    ConstData ip_pkt{data.data() + kHeaderSize, ip_len};
-
-    // Learn client VPN IP for reverse routing (TUN → client)
-    if (ip_len >= 20) {
-        auto src_ip = TunDevice::ParseSrcIP(ip_pkt);
-        if (src_ip) {
-            std::lock_guard lock(routing_mutex_);
-            ip_to_client_[src_ip->ToHostOrder()] = sender;
-        }
+    auto response_bytes = CreateMessageResponse(*peer, index_table_);
+    if (!response_bytes) {
+        Logger::Error("Server: CreateMessageResponse failed");
+        return;
     }
 
-    if (!use_tun_ || !tun_.IsOpen()) return;
-    if (ip_len < 20) return;
+    Data resp_span{response_bytes->data(), response_bytes->size()};
+    socket_.SendTo(sender, resp_span);
 
-    tun_.Write(ip_pkt);
-    Logger::Debug("Server: TUN <- " + std::to_string(ip_len) + " bytes from " +
-                  FormatEndpoint(sender));
+    if (!DeriveSessionKeys(*peer, index_table_, false)) {
+        Logger::Error("Server: DeriveSessionKeys failed");
+        return;
+    }
+
+    // Responder path: keypair lands in Next slot
+    auto* kp = peer->keypairs.Next();
+    if (!kp) {
+        Logger::Error("Server: Keypair missing after DeriveSessionKeys");
+        return;
+    }
+
+    SessionSecrets secrets;
+    secrets.send_key       = kp->send_key;
+    secrets.recv_key       = kp->receive_key;
+    secrets.sender_index   = kp->local_index;
+    secrets.receiver_index = kp->remote_index;
+    secrets.is_initiator   = false;
+
+    const std::uint32_t local_idx = kp->local_index;
+
+    Session* session = sessions_.ActivateSession(secrets, sender);
+    if (!session) {
+        Logger::Error("Server: ActivateSession failed");
+        return;
+    }
+
+    {
+        std::lock_guard lock(peers_mutex_);
+        peers_[local_idx] = std::move(peer);
+    }
+
+    Logger::Info("Server: Session established  peer=" + FormatEndpoint(sender) +
+                 "  local_idx=" + std::to_string(local_idx) +
+                 "  remote_idx=" + std::to_string(secrets.receiver_index));
 }
 
 // =========================================================================
-// HandleTunRead — wrap raw IP in 7-byte header, send to client via UDP
+// HandleResponse  (server is always responder — ignore)
+// =========================================================================
+
+void Server::HandleResponse(ConstData /*data*/, const Endpoint& sender) {
+    Logger::Debug("Server: Unexpected Response from " + FormatEndpoint(sender) + " — ignoring");
+}
+
+// =========================================================================
+// HandleCookie
+// =========================================================================
+
+void Server::HandleCookie(ConstData /*data*/, const Endpoint& sender) {
+    Logger::Debug("Server: Cookie from " + FormatEndpoint(sender) + " — not implemented");
+}
+
+// =========================================================================
+// HandleTransport  (decrypt and forward to TUN)
+// =========================================================================
+
+void Server::HandleTransport(ConstData data, const Endpoint& sender) {
+    auto msg = DeserializeTransport(data.data(), data.size());
+    if (!msg) {
+        Logger::Warning("Server: Bad Transport from " + FormatEndpoint(sender));
+        return;
+    }
+
+    Session* session = sessions_.Lookup(msg->receiver_index);
+    if (!session) {
+        Logger::Warning("Server: No session for receiver_index=" +
+                        std::to_string(msg->receiver_index));
+        return;
+    }
+
+    ConstData payload{msg->encrypted_payload.data(), msg->encrypted_payload.size()};
+    auto plaintext = session->Open(msg->counter, payload);
+    if (!plaintext) {
+        Logger::Warning("Server: Decrypt failed  receiver_index=" +
+                        std::to_string(msg->receiver_index));
+        return;
+    }
+
+    // Keepalive — empty plaintext, nothing to forward
+    if (plaintext->empty()) return;
+
+    // Learn client VPN IP for reverse routing (TUN → client)
+    if (plaintext->size() >= 20) {
+        ConstData pkt{plaintext->data(), plaintext->size()};
+        auto src_ip = TunDevice::ParseSrcIP(pkt);
+        if (src_ip) {
+            std::lock_guard lock(routing_mutex_);
+            ip_to_session_[src_ip->ToHostOrder()] = msg->receiver_index;
+        }
+    }
+
+    // Forward decrypted packet to the TUN kernel interface → internet
+    if (use_tun_ && tun_.IsOpen()) {
+        ConstData pkt{plaintext->data(), plaintext->size()};
+        tun_.Write(pkt);
+    }
+}
+
+// =========================================================================
+// HandleTunRead  (read response from internet, encrypt and send to client)
 // =========================================================================
 
 void Server::HandleTunRead() {
@@ -257,42 +382,79 @@ void Server::HandleTunRead() {
     const BytesTransferred n = tun_.Read(buf);
     if (n <= 0) return;
 
-    const auto ip_len = static_cast<std::size_t>(n);
-    if (ip_len < 20) return;  // too short to be a valid IPv4 packet
-
-    ConstData pkt{tun_buffer_.data(), ip_len};
+    ConstData pkt{tun_buffer_.data(), static_cast<std::size_t>(n)};
+    if (pkt.size() < 20) return;  // too short to be a valid IPv4 packet
 
     auto dst_ip = TunDevice::ParseDstIP(pkt);
     if (!dst_ip) return;
 
-    Endpoint client_ep{};
+    std::uint32_t session_idx = 0;
     {
         std::lock_guard lock(routing_mutex_);
-        auto it = ip_to_client_.find(dst_ip->ToHostOrder());
-        if (it == ip_to_client_.end()) return;
-        client_ep = it->second;
+        auto it = ip_to_session_.find(dst_ip->ToHostOrder());
+        if (it == ip_to_session_.end()) return;
+        session_idx = it->second;
     }
 
-    // Framing: [0x04][0x00 0x00 0x00 0x00][len LE][raw IP]
-    const auto len16 = static_cast<std::uint16_t>(ip_len);
-    std::vector<std::uint8_t> frame(7 + ip_len);
-    frame[0] = 0x04;
-    frame[1] = frame[2] = frame[3] = frame[4] = 0x00;
-    frame[5] = static_cast<std::uint8_t>(len16);
-    frame[6] = static_cast<std::uint8_t>(len16 >> 8);
-    std::memcpy(frame.data() + 7, tun_buffer_.data(), ip_len);
+    Session* session = sessions_.Lookup(session_idx);
+    if (!session) return;
 
-    Data wire{frame.data(), frame.size()};
-    socket_.SendTo(client_ep, wire);
-    Logger::Debug("Server: UDP -> " + std::to_string(ip_len) + " bytes to " +
-                  FormatEndpoint(client_ep));
+    SendTransport(*session, pkt);
 }
 
 // =========================================================================
-// TimerTick
+// SendTransport  (encrypt plaintext and send a Transport message via UDP)
 // =========================================================================
 
-void Server::TimerTick() {}
+void Server::SendTransport(Session& session, ConstData plaintext) {
+    auto sealed = session.Seal(plaintext);
+    if (!sealed) {
+        Logger::Warning("Server: Seal failed for session " + std::to_string(session.sender_index));
+        return;
+    }
+
+    // send_nonce was incremented by Seal(); the used counter is the previous value
+    const std::uint64_t counter = session.send_nonce.load(std::memory_order_relaxed) - 1;
+
+    TransportDataMsg msg;
+    msg.receiver_index    = session.receiver_index;
+    msg.counter           = counter;
+    msg.encrypted_payload = std::move(*sealed);
+
+    auto wire = SerializeTransport(msg);
+    Data wire_span{wire.data(), wire.size()};
+    socket_.SendTo(session.peer, wire_span);
+    session.last_sent_time = std::chrono::steady_clock::now();
+}
+
+// =========================================================================
+// TimerTick  (periodic housekeeping from the event loop)
+// =========================================================================
+
+void Server::TimerTick() {
+    // Keepalives
+    for (auto idx : sessions_.GetKeepaliveDue()) {
+        Session* s = sessions_.Lookup(idx);
+        if (!s) continue;
+        auto ka = s->CreateKeepalive();
+        if (!ka) continue;
+
+        const std::uint64_t counter = s->send_nonce.load(std::memory_order_relaxed) - 1;
+        TransportDataMsg msg;
+        msg.receiver_index    = s->receiver_index;
+        msg.counter           = counter;
+        msg.encrypted_payload = std::move(*ka);
+        auto wire = SerializeTransport(msg);
+        Data d{wire.data(), wire.size()};
+        socket_.SendTo(s->peer, d);
+        s->last_sent_time = std::chrono::steady_clock::now();
+    }
+
+    // Expire old sessions
+    if (const std::size_t n = sessions_.SweepExpired(); n > 0) {
+        Logger::Info("Server: Swept " + std::to_string(n) + " expired sessions");
+    }
+}
 
 // =========================================================================
 // Helpers

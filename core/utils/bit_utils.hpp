@@ -56,7 +56,7 @@ namespace core::utils {
 
     // Encode bytes as lowercase hex string (no prefix).
     [[nodiscard]] constexpr inline std::string ToHex(ConstByteSpan data) {
-        static constexpr char kHex[] = "0123456789abcdef";
+        constexpr char kHex[] = "0123456789abcdef";
         std::string out;
         out.reserve(data.size() * 2);
         for (auto b : data) {

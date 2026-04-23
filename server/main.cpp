@@ -25,6 +25,13 @@ int main(int argc, char* argv[]) {
 
     core::config::PrintPublicKeys(*keys);
 
+    // Write public keys to server_pub.conf for distribution to clients.
+    if (!core::config::SavePublicKeys("server_pub.conf", *keys)) {
+        Logger::Warning("main: Failed to write server_pub.conf");
+    } else {
+        Logger::Info("main: Public keys written to server_pub.conf — copy to client machine");
+    }
+
     Server server;
     server.SetBindAddress(IPv4::Any())
           .SetPort(51820)

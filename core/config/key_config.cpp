@@ -10,6 +10,8 @@
 #include <string_view>
 
 #include <openssl/evp.h>
+#include <openssl/core_names.h>
+#include <openssl/params.h>
 
 namespace core::config {
 
@@ -92,10 +94,17 @@ auto LoadOrGenerateKeys(std::string_view config_path) -> std::optional<KeyConfig
         return std::nullopt;
     }
 
-    std::size_t dk_len = 2400;
-    if (EVP_PKEY_get_raw_private_key(mlkem_kp->pkey.get(), keys.mlkem_dk.data(), &dk_len) != 1
+    std::size_t dk_len = 0;
+    if (EVP_PKEY_get_octet_string_param(mlkem_kp->pkey.get(),
+            OSSL_PKEY_PARAM_PRIV_KEY, nullptr, 0, &dk_len) <= 0
         || dk_len != 2400) {
-        Logger::Error("key_config: Failed to extract ML-KEM decapsulation key");
+        Logger::Error("key_config: Failed to query ML-KEM dk size (got "
+                      + std::to_string(dk_len) + ", expected 2400)");
+        return std::nullopt;
+    }
+    if (EVP_PKEY_get_octet_string_param(mlkem_kp->pkey.get(),
+            OSSL_PKEY_PARAM_PRIV_KEY, keys.mlkem_dk.data(), keys.mlkem_dk.size(), &dk_len) <= 0) {
+        Logger::Error("key_config: Failed to extract ML-KEM dk");
         return std::nullopt;
     }
 
@@ -117,6 +126,16 @@ void PrintPublicKeys(const KeyConfig& keys) {
               << "x25519_public = " << ToHex(keys.x25519_pub) << "\n"
               << "mlkem_ek = "      << ToHex(keys.mlkem_ek)   << "\n"
               << "============================================\n\n";
+}
+
+bool SavePublicKeys(std::string_view path, const KeyConfig& keys) {
+    std::ofstream f{std::string{path}};
+    if (!f) return false;
+    f << "# PostQuantumVPN Server Public Keys\n"
+      << "# Copy this file to the client machine.\n\n"
+      << "x25519_public = " << ToHex(keys.x25519_pub) << "\n"
+      << "mlkem_ek = "      << ToHex(keys.mlkem_ek)   << "\n";
+    return f.good();
 }
 
 } // namespace core::config
