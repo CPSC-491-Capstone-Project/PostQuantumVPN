@@ -2,7 +2,7 @@
 CLIENT_TARGET := PQ_VPN_Client
 SERVER_TARGET := PQ_VPN_Server
 TEST_TARGET := test_runner
-CXX := g++-12
+CXX := g++
 CC  := gcc
 #CXX := clang++
 WARN := -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion #-Werror
