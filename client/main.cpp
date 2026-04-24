@@ -4,6 +4,8 @@
 #include "key_config.hpp"
 #include "handshake_constants.hpp"
 #include "bit_utils.hpp"
+#include "privileges.hpp"
+#include "tunnel_setup.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -13,13 +15,9 @@
 
 using core::utils::Logger;
 using core::utils::FromHex;
+using core::network::IPv4;
 using client::Client;
 
-// ---------------------------------------------------------------------------
-// LoadServerPublicKeys
-// Parses x25519_public and mlkem_ek from a file written by the server's
-// PrintPublicKeys / SaveKeys (key=value, '#' lines ignored).
-// ---------------------------------------------------------------------------
 static bool LoadServerPublicKeys(
     std::string_view path,
     core::cryptography::x25519::PublicKey& x25519_pub,
@@ -71,17 +69,18 @@ int main(int argc, char* argv[]) {
 
     Logger::getInstance().init(std::cerr).setLogLevel(core::utils::LogLevel::DEBUG);
 
+    if (!core::os::HasElevatedPrivileges()) {
+        Logger::Error("main: PQ_VPN_Client must be run as root");
+        return 1;
+    }
+
     auto cfg = client::ClientConfigParser{client::kClientConfigFile}.Parse();
     if (!cfg) {
         Logger::Error("main: Failed to load client config");
         return 1;
     }
-    const std::string&   server_ip   = cfg->server_ip;
-    const std::uint16_t  server_port = cfg->server_port;
 
     core::handshake::InitHandshakeConstants();
-
-    // --- Load or generate client keys -------------------------------------------
 
     auto client_keys = core::config::LoadOrGenerateKeys("client_keys.conf");
     if (!client_keys) {
@@ -89,8 +88,6 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     Logger::Info("main: Client keys ready");
-
-    // --- Load server public keys ------------------------------------------------
 
     core::cryptography::x25519::PublicKey server_x25519_pub{};
     std::array<std::uint8_t, 1184>         server_mlkem_ek{};
@@ -102,8 +99,6 @@ int main(int argc, char* argv[]) {
     }
     Logger::Info("main: Server public keys loaded");
 
-    // --- Configure and start client -------------------------------------------
-
     Client client;
     client.SetStaticKeys(
                client_keys->x25519_priv,
@@ -111,14 +106,19 @@ int main(int argc, char* argv[]) {
                client_keys->mlkem_dk,
                client_keys->mlkem_ek)
           .SetServerStaticKeys(server_x25519_pub, server_mlkem_ek)
-          .SetTunInterface("tun0");
+          .SetTunInterface(cfg->tun_iface, IPv4{cfg->tun_ip});
 
-    if (!client.Init(server_ip, server_port)) {
+    if (!client.Init(cfg->server_ip, cfg->server_port)) {
         Logger::Error("main: Client initialization failed");
         return 1;
     }
 
-    // Run() blocks in the event loop, so drive it on a worker thread.
+    if (!core::network::ConfigureClientRouting(cfg->tun_iface, cfg->firewall_mark, cfg->vpn_table)) {
+        Logger::Error("main: Failed to configure tunnel routing");
+        client.Shutdown();
+        return 1;
+    }
+
     std::thread worker([&client] { client.Run(); });
 
     Logger::Info("main: Client running — type 'q' to quit");
@@ -130,6 +130,8 @@ int main(int argc, char* argv[]) {
 
     client.Shutdown();
     worker.join();
+
+    core::network::RemoveClientRouting(cfg->tun_iface, cfg->firewall_mark, cfg->vpn_table);
 
     Logger::Info("main: Done");
     return 0;

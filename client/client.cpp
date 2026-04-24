@@ -35,8 +35,9 @@ Client::~Client() {
 // Builder setters
 // =========================================================================
 
-Client& Client::SetTunInterface(std::string_view ifname) {
+Client& Client::SetTunInterface(std::string_view ifname, core::network::IPv4 ip) {
     tun_ifname_ = ifname;
+    tun_ip_     = ip;
     return *this;
 }
 
@@ -122,6 +123,12 @@ bool Client::Init(const std::string& server_ip, std::uint16_t server_port) {
     } else if (!tun_.Open(tun_ifname_)) {
         Logger::Warning("Client: Failed to open TUN device " + tun_ifname_ +
                         " — running without TUN");
+    } else if (!tun_.BringUp(tun_ip_)) {
+        Logger::Error("Client: Failed to bring up TUN " + tun_ifname_);
+        tun_.Close();
+        poller_.Close();
+        socket_.Close();
+        return false;
     } else {
         tun_.SetNonBlocking();
         if (!poller_.Add(tun_.GetHandle(), EventMask::Readable)) {

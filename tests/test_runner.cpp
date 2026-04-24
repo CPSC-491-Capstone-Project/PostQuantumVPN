@@ -37,6 +37,7 @@
 #include "siphash_tests.hpp"
 #include "tai64n_tests.hpp"
 #include "tun_device_tests.hpp"
+#include "tunnel_setup_tests.hpp"
 #include "udp_socket_tests.hpp"
 #include "x25519_tests.hpp"
 #include "index_table_tests.hpp"
@@ -727,6 +728,15 @@ int main(int argc, char* argv[]) {
     Run(KeyConfigTest_LoadOrGenerate_NulloptOnPartialFile,"KeyConfig: nullopt on partial file");
     Run(KeyConfigTest_LoadOrGenerate_MlKemEkSize,        "KeyConfig: ML-KEM EK = 1184 bytes");
     Run(KeyConfigTest_LoadOrGenerate_MlKemDkSize,        "KeyConfig: ML-KEM DK = 2400 bytes");
+
+    // =============================================================================
+    // Tunnel Setup Tests  (requires root)
+    // =============================================================================
+    std::cout << "\n";
+    Run(TunnelSetupTest_HasElevatedPrivileges_ReflectsEuid,        "TunnelSetup: HasElevatedPrivileges reflects euid");
+    Run(TunnelSetupTest_ConfigureClientRouting_FailsOnMissingIface,"TunnelSetup: configure fails on missing iface");
+    Run(TunnelSetupTest_ClientRouting_Roundtrip,                   "TunnelSetup: client routing round-trip");
+    Run(TunnelSetupTest_RemoveClientRouting_Idempotent,            "TunnelSetup: remove routing idempotent");
 
     // =============================================================================
     // Future Tests

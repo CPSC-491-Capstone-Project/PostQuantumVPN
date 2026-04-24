@@ -3,6 +3,8 @@
 #include "server_config.hpp"
 #include "handshake_constants.hpp"
 #include "key_config.hpp"
+#include "privileges.hpp"
+#include "tunnel_setup.hpp"
 
 #include <iostream>
 #include <string>
@@ -16,6 +18,11 @@ int main(int argc, char* argv[]) {
 
     Logger::getInstance().init(std::cerr).setLogLevel(core::utils::LogLevel::DEBUG);
 
+    if (!core::os::HasElevatedPrivileges()) {
+        Logger::Error("main: PQ_VPN_Server must be run as root");
+        return 1;
+    }
+
     core::handshake::InitHandshakeConstants();
 
     auto keys = core::config::LoadOrGenerateKeys("server_keys.conf");
@@ -26,7 +33,6 @@ int main(int argc, char* argv[]) {
 
     core::config::PrintPublicKeys(*keys);
 
-    // Write public keys to server_pub.conf for distribution to clients.
     if (!core::config::SavePublicKeys("server_pub.conf", *keys)) {
         Logger::Warning("main: Failed to write server_pub.conf");
     } else {
@@ -43,7 +49,7 @@ int main(int argc, char* argv[]) {
     server.SetBindAddress(IPv4{cfg->bind_ip})
           .SetPort(cfg->port)
           .SetPollTimeoutMs(250)
-          .SetTunInterface("pqvpn0", IPv4(10, 8, 0, 1))
+          .SetTunInterface(cfg->tun_iface, IPv4(10, 8, 0, 1))
           .SetStaticKeys(keys->x25519_priv, keys->x25519_pub, keys->mlkem_dk, keys->mlkem_ek);
 
     if (!server.Init()) {
@@ -56,6 +62,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    if (!core::network::ConfigureServerNAT(cfg->tun_iface, cfg->vpn_subnet)) {
+        Logger::Error("main: Failed to configure server NAT");
+        server.Shutdown();
+        return 1;
+    }
+
     Logger::Info("main: Server listening on " + cfg->bind_ip + ":" + std::to_string(cfg->port) + " — type 'q' to quit");
 
     std::string line;
@@ -64,6 +76,9 @@ int main(int argc, char* argv[]) {
     }
 
     server.Shutdown();
+
+    core::network::RemoveServerNAT(cfg->tun_iface, cfg->vpn_subnet);
+
     Logger::Info("main: Done");
     return 0;
 }

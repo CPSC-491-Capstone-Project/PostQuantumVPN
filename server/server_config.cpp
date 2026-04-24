@@ -12,8 +12,10 @@ static bool WriteDefaults(const char* path, const ServerConfig& cfg) {
     std::ofstream f{path};
     if (!f) return false;
     f << "# PostQuantumVPN Server Configuration\n\n"
-      << "bind_ip = " << cfg.bind_ip << "\n"
-      << "port    = " << cfg.port    << "\n";
+      << "bind_ip    = " << cfg.bind_ip    << "\n"
+      << "port       = " << cfg.port       << "\n"
+      << "tun_iface  = " << cfg.tun_iface  << "\n"
+      << "vpn_subnet = " << cfg.vpn_subnet << "\n";
     return f.good();
 }
 
@@ -45,6 +47,10 @@ static bool ParseFile(const char* path, ServerConfig& out) {
         } else if (key == "port") {
             try { out.port = static_cast<std::uint16_t>(std::stoi(val)); }
             catch (...) { Logger::Warning("server_config: invalid port, using default"); }
+        } else if (key == "tun_iface") {
+            out.tun_iface = val;
+        } else if (key == "vpn_subnet") {
+            out.vpn_subnet = val;
         }
     }
     return true;

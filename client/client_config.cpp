@@ -12,8 +12,12 @@ static bool WriteDefaults(const char* path, const ClientConfig& cfg) {
     std::ofstream f{path};
     if (!f) return false;
     f << "# PostQuantumVPN Client Configuration\n\n"
-      << "server_ip   = " << cfg.server_ip   << "\n"
-      << "server_port = " << cfg.server_port << "\n";
+      << "server_ip     = " << cfg.server_ip     << "\n"
+      << "server_port   = " << cfg.server_port   << "\n"
+      << "tun_iface     = " << cfg.tun_iface     << "\n"
+      << "tun_ip        = " << cfg.tun_ip        << "\n"
+      << "firewall_mark = " << cfg.firewall_mark << "\n"
+      << "vpn_table     = " << cfg.vpn_table     << "\n";
     return f.good();
 }
 
@@ -45,6 +49,16 @@ static bool ParseFile(const char* path, ClientConfig& out) {
         } else if (key == "server_port") {
             try { out.server_port = static_cast<std::uint16_t>(std::stoi(val)); }
             catch (...) { Logger::Warning("client_config: invalid server_port, using default"); }
+        } else if (key == "tun_iface") {
+            out.tun_iface = val;
+        } else if (key == "tun_ip") {
+            out.tun_ip = val;
+        } else if (key == "firewall_mark") {
+            try { out.firewall_mark = static_cast<std::uint32_t>(std::stoul(val)); }
+            catch (...) { Logger::Warning("client_config: invalid firewall_mark, using default"); }
+        } else if (key == "vpn_table") {
+            try { out.vpn_table = std::stoi(val); }
+            catch (...) { Logger::Warning("client_config: invalid vpn_table, using default"); }
         }
     }
     return true;

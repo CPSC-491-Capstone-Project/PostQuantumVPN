@@ -48,8 +48,8 @@ public:
     Client(Client&&)                 = delete;
     Client& operator=(Client&&)      = delete;
 
-    // Configure TUN interface name before calling Init() (default: "tun0").
-    Client& SetTunInterface(std::string_view ifname);
+    // Configure TUN interface name and IP before calling Init().
+    Client& SetTunInterface(std::string_view ifname, core::network::IPv4 ip);
 
     // Set client's own static key material.
     Client& SetStaticKeys(
@@ -109,8 +109,9 @@ private:
     bool           has_session_{false};
 
     // --- Config ---
-    std::string tun_ifname_{"tun0"};
-    bool        use_tun_{false};
+    std::string          tun_ifname_{"tun0"};
+    core::network::IPv4  tun_ip_{};
+    bool                 use_tun_{false};
 
     // --- State ---
     std::atomic<bool>     running_{false};
