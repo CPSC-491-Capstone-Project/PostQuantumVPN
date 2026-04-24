@@ -279,7 +279,7 @@ FILTER ?=
 
 run-client: client
 	@echo "[run] $(BINDIR)/$(CLIENT_TARGET)"
-	@./$(BINDIR)/$(CLIENT_TARGET) $(SERVER_IP) $(SERVER_PORT)
+	@./$(BINDIR)/$(CLIENT_TARGET)
 
 run-server: server
 	@echo "[run] $(BINDIR)/$(SERVER_TARGET)"
