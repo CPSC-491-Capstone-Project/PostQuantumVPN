@@ -1,5 +1,6 @@
 #include "logger.hpp"
 #include "server.hpp"
+#include "server_config.hpp"
 #include "handshake_constants.hpp"
 #include "key_config.hpp"
 
@@ -32,9 +33,15 @@ int main(int argc, char* argv[]) {
         Logger::Info("main: Public keys written to server_pub.conf — copy to client machine");
     }
 
+    auto cfg = server::ServerConfigParser{server::kServerConfigFile}.Parse();
+    if (!cfg) {
+        Logger::Error("main: Failed to load server config");
+        return 1;
+    }
+
     Server server;
-    server.SetBindAddress(IPv4::Any())
-          .SetPort(51820)
+    server.SetBindAddress(IPv4{cfg->bind_ip})
+          .SetPort(cfg->port)
           .SetPollTimeoutMs(250)
           .SetTunInterface("pqvpn0", IPv4(10, 8, 0, 1))
           .SetStaticKeys(keys->x25519_priv, keys->x25519_pub, keys->mlkem_dk, keys->mlkem_ek);
@@ -49,7 +56,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    Logger::Info("main: Server listening on 0.0.0.0:51820 — type 'q' to quit");
+    Logger::Info("main: Server listening on " + cfg->bind_ip + ":" + std::to_string(cfg->port) + " — type 'q' to quit");
 
     std::string line;
     while (std::getline(std::cin, line)) {

@@ -1,5 +1,6 @@
 #include "logger.hpp"
 #include "client.hpp"
+#include "client_config.hpp"
 #include "key_config.hpp"
 #include "handshake_constants.hpp"
 #include "bit_utils.hpp"
@@ -66,14 +67,17 @@ static bool LoadServerPublicKeys(
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <server_ip> [port]\n";
-        return 1;
-    }
-    std::string server_ip   = argv[1];
-    std::uint16_t server_port = (argc >= 3) ? static_cast<std::uint16_t>(std::stoi(argv[2])) : 51820;
+    (void)argc; (void)argv;
 
     Logger::getInstance().init(std::cerr).setLogLevel(core::utils::LogLevel::DEBUG);
+
+    auto cfg = client::ClientConfigParser{client::kClientConfigFile}.Parse();
+    if (!cfg) {
+        Logger::Error("main: Failed to load client config");
+        return 1;
+    }
+    const std::string&   server_ip   = cfg->server_ip;
+    const std::uint16_t  server_port = cfg->server_port;
 
     core::handshake::InitHandshakeConstants();
 
