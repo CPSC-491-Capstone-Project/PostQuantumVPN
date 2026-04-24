@@ -16,6 +16,7 @@
 
 #include <atomic>
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -112,9 +113,14 @@ private:
     bool        use_tun_{false};
 
     // --- State ---
-    std::atomic<bool> running_{false};
+    std::atomic<bool>     running_{false};
     bool initialized_{false};
     bool stopped_{false};
+
+    // --- Stats ---
+    std::atomic<std::uint64_t> bytes_sent_{0};
+    std::atomic<std::uint64_t> bytes_recv_{0};
+    std::chrono::steady_clock::time_point last_stats_time_{};
 
     // --- Event handlers ---
     void HandleTunRead();

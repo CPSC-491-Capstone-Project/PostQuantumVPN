@@ -152,6 +152,7 @@ void Client::Run() {
     }
 
     running_.store(true, std::memory_order_relaxed);
+    last_stats_time_ = std::chrono::steady_clock::now();
     Logger::Info("Client: Entering event loop");
 
     SendInitiation();
@@ -286,8 +287,8 @@ void Client::HandleInitiation(ConstData /*data*/, const Endpoint& sender) {
 // =========================================================================
 
 void Client::HandleResponse(ConstData data, const Endpoint& sender) {
-    Logger::Debug("Client: Response (" + std::to_string(data.size()) +
-                  " bytes) from " + FormatEndpoint(sender));
+    // Logger::Debug("Client: Response (" + std::to_string(data.size()) +
+    //               " bytes) from " + FormatEndpoint(sender));
 
     if (data.size() < core::handshake::kResponseSize) {
         Logger::Warning("Client: Response too short: " + std::to_string(data.size()));
@@ -377,7 +378,7 @@ void Client::HandleTransport(ConstData data, const Endpoint& /*sender*/) {
 
     ConstData ip_pkt{plaintext->data(), plaintext->size()};
     tun_.Write(ip_pkt);
-    Logger::Debug("Client: TUN <- " + std::to_string(plaintext->size()) + " bytes");
+    bytes_recv_.fetch_add(plaintext->size(), std::memory_order_relaxed);
 }
 
 // =========================================================================
@@ -428,9 +429,7 @@ void Client::SendTransport(Session& session, ConstData plaintext) {
     Data wire_span{wire.data(), wire.size()};
     socket_.SendTo(server_endpoint_, wire_span);
     session.last_sent_time = std::chrono::steady_clock::now();
-
-    Logger::Debug("Client: Transport -> server (" +
-                  std::to_string(plaintext.size()) + " bytes)");
+    bytes_sent_.fetch_add(plaintext.size(), std::memory_order_relaxed);
 }
 
 // =========================================================================
@@ -438,6 +437,15 @@ void Client::SendTransport(Session& session, ConstData plaintext) {
 // =========================================================================
 
 void Client::TimerTick() {
+    // Per-second stats
+    auto now = std::chrono::steady_clock::now();
+    if (now - last_stats_time_ >= std::chrono::seconds(1)) {
+        const std::uint64_t tx = bytes_sent_.exchange(0, std::memory_order_relaxed);
+        const std::uint64_t rx = bytes_recv_.exchange(0, std::memory_order_relaxed);
+        Logger::Info("Client: TX=" + std::to_string(tx) + "B  RX=" + std::to_string(rx) + "B");
+        last_stats_time_ = now;
+    }
+
     // Keepalives
     for (auto idx : sessions_.GetKeepaliveDue()) {
         Session* s = sessions_.Lookup(idx);
