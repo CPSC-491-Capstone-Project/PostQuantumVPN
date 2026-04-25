@@ -16,36 +16,6 @@ The VPN uses a **hybrid key exchange** (Kyber + X25519) to ensure security again
 3. **Implement a secure handshake and session management** system with replay protection
 4. **Benchmark performance** against WireGuard + Rosenpass to ensure competitive throughput and latency
 
-## Current Project Status
-
-The project was designed in CPSC 490 and is being implemented in CPSC 491. Below is the status of each major module:
-
-| Module | Status | Jira Epic |
-|---|---|---|
-| Logging Module | ✅ Done | DG-136 |
-| Protocol Module | 🔧 In Progress | DG-137 |
-| Cryptography Module | ✅ Done | DG-138 |
-| Tunnel Module | 🧪 Testing | DG-139 |
-| Network Module | 🔧 In Progress | DG-140 |
-| Client Application | 📋 To Do | DG-141 |
-| Server Application | 📋 To Do | DG-142 |
-| Handshake Module | 🔧 In Progress | DG-143 |
-| Session Module | 📋 To Do | DG-144 |
-| Configuration Module | 📋 To Do | DG-145 |
-| WireGuard + Rosenpass Baseline | 📋 To Do | DG-146 |
-| VPN Performance Testing | 📋 To Do | DG-147 |
-| Optimize Application | 📋 To Do | DG-148 |
-
-### Completed Subtasks
-
-- Logger levels, event structure, and thread-safe singleton logger
-- All cryptographic primitives: Kyber (ML-KEM), X25519, BLAKE3, HKDF, ChaCha20-Poly1305, SipHash
-- Full test suites for all crypto modules
-- TUN device detection, creation, and attachment
-- UDP socket wrapper and EPOLL event loop
-- Handshake helper functions: MixHash, MixKey, KDF1/2/3, EncryptAndHash, DecryptAndHash
-- TAI64N timestamps for handshake replay protection
-
 ## Key Setup
 
 PostQuantumVPN uses a hybrid keypair: **X25519** (classical) + **ML-KEM-768** (post-quantum). Each peer (server or client) has its own static keypair that is generated once and persisted.
